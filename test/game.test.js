@@ -67,7 +67,7 @@ test('score, niveaux, série', () => {
 test('badges et texte de partage', () => {
   const ids = newBadges({ games: 1, correct: 120, bestStreak: 3 }, []).map(b => b.id);
   assert.deepEqual(ids.sort(), ['c100', 'first', 'streak3']);
-  const t = shareText({ title: 'Défi du jour #294', correct: 8, total: 10, score: 1520, grid: '🟩🟥', url: 'https://x.y/' });
+  const t = shareText({ title: 'Défi du jour #294', correct: 8, total: 10, score: 1520, grid: '🟧⬜', url: 'https://x.y/' });
   assert.match(t, /8\/10 · 1\s?520 pts/);
   assert.match(shareText({ title: 'Survie', correct: 12, total: null, url: 'u' }), /12 bonnes réponses/);
 });

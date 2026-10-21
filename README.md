@@ -16,7 +16,7 @@ Quiz de géographie mobile inspiré de JetPunk : **drapeaux** et **capitales** d
 XP et niveaux avec titres (Touriste → Atlas vivant), série de jours 🔥, 15 badges, records par mode/zone, confettis, sons et vibrations, partage du score (texte + image 1080×1080 via le menu de partage du téléphone, ou copie dans le presse-papiers).
 
 ## Direction artistique
-Cartoon japonais épuré : contours encre épais, aplats orange mandarine (`#ff8a1f`) et bleu ciel (`#8fd3ff`), cartes et drapeaux façon autocollants (bord blanc découpé, légère rotation), police arrondie M PLUS Rounded 1c. La mascotte (`js/mascot.js`, SVG) a trois humeurs : perdue, contente, sonnée.
+Cartoon japonais épuré, quatre couleurs seulement : encre (`#1f2a48`), papier, orange mandarine (`#ff8a1f`) et bleu ciel (`#8fd3ff`). Cartes et drapeaux façon autocollants (bord blanc découpé, légère rotation, ombre douce), boutons à plat avec contour encre, icônes au trait dessinées (`js/icons.js`, pas d'émojis). Titres en Dela Gothic One, texte en M PLUS Rounded 1c. La mascotte (`js/mascot.js`, SVG) a trois humeurs : perdue, contente, sonnée.
 
 ## Technique
 Application web installable (PWA), sans dépendance ni build : HTML/CSS/JS. Fonctionne hors ligne après la première visite. Progression stockée sur l'appareil (localStorage).

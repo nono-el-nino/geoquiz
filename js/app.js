@@ -1,5 +1,6 @@
 import { REGIONS, countriesFor, flagEmoji } from './data.js';
 import { mascot } from './mascot.js';
+import { icon } from './icons.js';
 import {
   shuffle, makeQuiz, makeQuestion, dailyQuiz, dayKey, dayNumber, QUESTION_TIME,
   questionPoints, comboMultiplier, stars, matchTyped, levelFromXp, titleFor,
@@ -10,13 +11,13 @@ import {
 const app = document.getElementById('app');
 const APP_URL = location.origin + location.pathname.replace(/index\.html$/, '');
 const KIND = {
-  flags: { label: 'Drapeaux', icon: '🏳️', verb: 'À quel pays appartient ce drapeau&nbsp;?' },
-  capitals: { label: 'Capitales', icon: '🏛️' },
+  flags: { label: 'Drapeaux', icon: 'flag', verb: 'À quel pays appartient ce drapeau&nbsp;?' },
+  capitals: { label: 'Capitales', icon: 'landmark' },
 };
 const MODES = {
-  eclair: { label: 'Éclair', icon: '⚡', desc: '10 questions, 10 s chacune. Vise le combo !' },
-  saisie: { label: 'Saisie', icon: '✍️', desc: '10 questions à écrire, 25 s chacune. Orthographe souple, aide à la saisie.' },
-  survie: { label: 'Survie', icon: '❤️', desc: '3 vies. Jusqu’où iras-tu ?' },
+  eclair: { label: 'Éclair', icon: 'bolt', desc: '10 questions, 10 s chacune. Vise le combo !' },
+  saisie: { label: 'Saisie', icon: 'pencil', desc: '10 questions à écrire, 25 s chacune. Orthographe souple, aide à la saisie.' },
+  survie: { label: 'Survie', icon: 'heart', desc: '3 vies. Jusqu’où iras-tu ?' },
   marathon: { label: 'Marathon', icon: '⌨️', desc: 'Tape-les tous avant la fin du chrono.' },
 };
 
@@ -55,9 +56,11 @@ function flag(code, cls = '') {
     : `<img class="flag ${cls}" alt="" src="https://flagcdn.com/w320/${code}.png">`;
 }
 
-// Grille de résultat dessinée (les émojis 🟩🟨🟥 restent pour le texte partagé)
+// Grille de résultat : pastille pleine = juste, vide = raté
+const gridCells = grid => [...grid.matchAll(/🟧|🟩|🟨|⬜|🟥/gu)].map(m => m[0] !== '⬜' && m[0] !== '🟥');
 function gridHtml(grid) {
-  return `<div class="grid" aria-label="${grid}">${[...grid.matchAll(/🟩|🟨|🟥/gu)].map(m => `<i class="${m[0] === '🟩' ? 'g' : m[0] === '🟨' ? 'y' : ''}"></i>`).join('')}</div>`;
+  const cells = gridCells(grid);
+  return `<div class="grid" aria-label="${cells.filter(Boolean).length} bonnes réponses sur ${cells.length}">${cells.map(ok => `<i class="${ok ? 'on' : ''}"></i>`).join('')}</div>`;
 }
 
 function flagSticker(code, cls = '') {
@@ -102,7 +105,7 @@ function confetti() {
   const cv = document.getElementById('confetti'), ctx = cv.getContext('2d');
   cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio;
   ctx.scale(devicePixelRatio, devicePixelRatio);
-  const colors = ['#ff8a1f', '#2f9be8', '#ffc93c', '#36c27a', '#ff5c5c', '#1f2a48'];
+  const colors = ['#ff8a1f', '#2f9be8', '#1f2a48', '#fffdf7', '#8fd3ff'];
   const parts = Array.from({ length: 140 }, () => ({
     x: innerWidth / 2, y: innerHeight / 3, vx: (Math.random() - .5) * 14, vy: Math.random() * -14 - 4,
     s: 6 + Math.random() * 6, c: colors[Math.floor(Math.random() * colors.length)], r: Math.random() * 6, vr: (Math.random() - .5) * .4,
@@ -138,8 +141,8 @@ function home() {
     <header class="row between">
       <div class="logo">Flag <b>ada</b><small>Drapeaux & capitales</small></div>
       <div class="row">
-        <span class="chip" title="Jours joués d'affilée">🔥 ${S.lastPlayed === today || isYesterday(S.lastPlayed) ? S.streak : 0}</span>
-        <button class="icon-btn" id="profile" aria-label="Profil et badges">🏅</button>
+        <span class="chip" title="Jours joués d'affilée">${icon('flame')} ${S.lastPlayed === today || isYesterday(S.lastPlayed) ? S.streak : 0}</span>
+        <button class="icon-btn" id="profile" aria-label="Profil et badges">${icon('medal')}</button>
       </div>
     </header>
 
@@ -161,16 +164,16 @@ function home() {
       <h2>${done ? `Fait : ${done.correct}/10 · ${done.score.toLocaleString('fr-FR')} pts` : '10 questions, les mêmes pour tout le monde'}</h2>
       ${done
         ? `${gridHtml(done.grid)}
-           <button class="btn" id="share-daily">📣 Défier mes amis</button>
+           <button class="btn" id="share-daily">${icon('share')} Défier mes amis</button>
            <div class="small center" style="margin-top:10px;font-weight:700">Prochain défi dans <span id="countdown">${countdown()}</span></div>`
-        : `<button class="btn" id="daily">Jouer le défi ▶</button>`}
+        : `<button class="btn" id="daily">Jouer le défi ${icon('play')}</button>`}
     </section>
 
     <h2>Entraînement</h2>
     <div class="tiles">
       ${Object.entries(KIND).map(([k, v]) => `
         <button class="tile" data-kind="${k}">
-          <span class="ico">${v.icon}</span><b>${v.label}</b>
+          <span class="ico">${icon(v.icon)}</span><b>${v.label}</b>
           <span class="muted small">193 pays · 3 modes</span>
         </button>`).join('')}
     </div>
@@ -209,23 +212,23 @@ function setup(kind) {
   const rec = S.records[recKey];
   render(`
     <header class="row">
-      <button class="icon-btn" id="back" aria-label="Retour">←</button>
-      <h2 class="grow">${KIND[kind].icon} ${KIND[kind].label}</h2>
+      <button class="icon-btn" id="back" aria-label="Retour">${icon('back')}</button>
+      <h2 class="grow">${KIND[kind].label}</h2>
     </header>
     <div class="modes">
       ${Object.entries(MODES).map(([k, m]) => `
         <button class="mode ${pick.mode === k ? 'on' : ''}" data-mode="${k}">
-          <span class="ico">${m.icon}</span>
+          <span class="ico">${icon(m.icon)}</span>
           <span><b>${m.label}</b><br><span class="muted small">${m.desc}</span></span>
         </button>`).join('')}
     </div>
     <h2>Zone</h2>
     <div class="regions">
       ${Object.entries(REGIONS).map(([k, r]) => `
-        <button class="region ${pick.region === k ? 'on' : ''}" data-region="${k}">${r.emoji} ${r.label} <span class="muted small">${countriesFor(k).length}</span></button>`).join('')}
+        <button class="region ${pick.region === k ? 'on' : ''}" data-region="${k}">${r.label} <span class="muted small">${countriesFor(k).length}</span></button>`).join('')}
     </div>
     <div class="grow"></div>
-    <div class="center muted">${rec ? `🏆 Ton record : <b style="color:var(--text)">${formatRecord(pick.mode, rec)}</b>` : 'Pas encore de record ici'}</div>
+    <div class="record-line">${rec ? `${icon('trophy')} Ton record : <b>${formatRecord(pick.mode, rec)}</b>` : 'Pas encore de record ici'}</div>
     <button class="btn primary" id="go">C'est parti !</button>
   `, () => {
     on('#back', 'click', home);
@@ -268,20 +271,20 @@ function playChoice(cfg) {
     const label = x => (q.kind === 'flags' ? x.name : x.capital);
     render(`
       <div class="hud">
-        <button class="icon-btn" id="quit" aria-label="Quitter">✕</button>
+        <button class="icon-btn" id="quit" aria-label="Quitter">${icon('close')}</button>
         <div class="grow center">
           ${cfg.mode === 'survie'
-            ? `<span class="hearts">${'❤️'.repeat(g.lives)}${'🖤'.repeat(3 - g.lives)}</span>`
+            ? `<span class="hearts">${[0, 1, 2].map(i => icon('heart', i < g.lives ? 'full' : '')).join('')}</span>`
             : `<b>${idx + 1}</b><span class="muted"> / ${count}</span>`}
         </div>
-        <div class="score" id="score">${cfg.mode === 'survie' ? `✅ ${g.answers.filter(a => a.correct).length}` : g.score.toLocaleString('fr-FR')}</div>
+        <div class="score" id="score">${cfg.mode === 'survie' ? `${g.answers.filter(a => a.correct).length}` : g.score.toLocaleString('fr-FR')}</div>
       </div>
       <div class="bar timer" id="timer"><i style="width:100%"></i></div>
       <div class="prompt">
         ${q.kind === 'flags'
           ? `${flagSticker(c.code)}<div class="q">${KIND.flags.verb}</div>`
           : `${flagSticker(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Quelle est sa capitale&nbsp;?</div>`}
-        ${g.combo >= 3 ? `<div class="chip">🔥 Combo ${g.combo} · x${comboMultiplier(g.combo)}</div>` : ''}
+        ${g.combo >= 3 ? `<div class="chip">${icon('flame')} Combo ${g.combo} · x${comboMultiplier(g.combo)}</div>` : ''}
       </div>
       <div class="answers">
         ${q.choices.map(x => `<button class="answer" data-code="${x.code}">${esc(label(x))}</button>`).join('')}
@@ -327,9 +330,9 @@ function playChoice(cfg) {
       else b.classList.add('dim');
     });
     beep(correct); buzz(correct ? 15 : [40, 40, 40]);
-    if (correct && g.combo >= 3 && g.combo % 3 === 0) popCombo(`x${comboMultiplier(g.combo)} COMBO 🔥`);
+    if (correct && g.combo >= 3 && g.combo % 3 === 0) popCombo(`Combo x${comboMultiplier(g.combo)}`);
     else if (correct && pts) popCombo(`+${pts}`);
-    if (code === null) popCombo('⏰ Temps écoulé');
+    if (code === null) popCombo('Temps écoulé');
 
     idx++;
     const over = (cfg.mode === 'survie' && g.lives <= 0) || (count && idx >= count);
@@ -381,7 +384,7 @@ function playTyping(cfg) {
 
   render(`
     <div class="hud">
-      <button class="icon-btn" id="quit" aria-label="Quitter">✕</button>
+      <button class="icon-btn" id="quit" aria-label="Quitter">${icon('close')}</button>
       <div class="grow center"><b id="qnum">1</b><span class="muted"> / ${count}</span></div>
       <div class="score" id="score">0</div>
     </div>
@@ -389,13 +392,13 @@ function playTyping(cfg) {
     <div class="prompt typing" id="prompt"></div>
     <form class="type-answer" id="form" autocomplete="off">
       <input id="typed" enterkeyhint="go" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Ta réponse">
-      <button class="btn green" id="ok" type="submit" aria-label="Valider">✓</button>
+      <button class="btn primary" id="ok" type="submit" aria-label="Valider">${icon('check')}</button>
     </form>
     <div class="suggests" id="suggests"></div>
     <div id="feedback" class="feedback" aria-live="assertive"></div>
-    <div class="row">
-      <button class="btn ghost keep" id="hint" type="button">💡 Indice</button>
-      <button class="btn ghost keep" id="skip" type="button">Passer ⏭</button>
+    <div class="tools">
+      <button class="btn ghost keep" id="hint" type="button">${icon('bulb')} Indice</button>
+      <button class="btn ghost keep" id="skip" type="button">Passer ${icon('skip')}</button>
     </div>
   `, () => {
     const input = document.getElementById('typed');
@@ -407,7 +410,7 @@ function playTyping(cfg) {
     on('#hint', 'click', () => {
       if (locked || hinted) return;
       hinted = true;
-      feedback(`💡 ${hintFor(answerOf(q))}`, 'hint');
+      feedback(hintFor(answerOf(q)), 'hint');
       document.getElementById('hint').disabled = true;
       input.focus();
     });
@@ -438,7 +441,7 @@ function playTyping(cfg) {
     input.value = ''; input.classList.remove('shake', 'ok'); input.placeholder = q.kind === 'flags' ? 'Nom du pays…' : 'Nom de la capitale…';
     document.getElementById('hint').disabled = false;
     document.getElementById('suggests').innerHTML = '';
-    feedback(g.combo >= 3 ? `🔥 Combo ${g.combo} · x${comboMultiplier(g.combo)}` : '', 'combo');
+    feedback(g.combo >= 3 ? `Combo ${g.combo} · x${comboMultiplier(g.combo)}` : '', 'combo');
     tick();
   }
 
@@ -474,7 +477,7 @@ function playTyping(cfg) {
       // Mauvaise réponse : on peut réessayer tant qu'il reste du temps.
       beep(false); buzz([30, 30, 30]);
       input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
-      feedback(r.other ? `❌ Ça, c'est ${q.kind === 'flags' ? r.other.name : `la capitale : ${r.other.name}`}` : '❌ Non, réessaie !', 'bad');
+      feedback(r.other ? `Ça, c'est ${q.kind === 'flags' ? r.other.name : `la capitale : ${r.other.name}`}` : 'Non, réessaie !', 'bad');
       input.select();
       return;
     }
@@ -488,9 +491,9 @@ function playTyping(cfg) {
     document.getElementById('score').textContent = g.score.toLocaleString('fr-FR');
     input.value = answerOf(q);
     input.classList.add('ok');
-    feedback(r.exact ? '✅ Exact !' : `✅ Accepté : ${answerOf(q)}`, 'good');
+    feedback(r.exact ? 'Exact !' : `Accepté : ${answerOf(q)}`, 'good');
     beep(true); buzz(15);
-    popCombo(g.combo >= 3 && g.combo % 3 === 0 ? `x${comboMultiplier(g.combo)} COMBO 🔥` : `+${pts}`);
+    popCombo(g.combo >= 3 && g.combo % 3 === 0 ? `Combo x${comboMultiplier(g.combo)}` : `+${pts}`);
     next(r.exact ? 700 : 1300);
   }
 
@@ -499,7 +502,7 @@ function playTyping(cfg) {
     g.combo = 0;
     g.answers.push({ country: q.country, kind: q.kind, correct: false });
     beep(false); buzz([40, 40, 40]);
-    feedback(`${timeout ? '⏰ Temps écoulé' : '⏭ Passé'} — c'était ${answerOf(q)}`, 'bad');
+    feedback(`${timeout ? 'Temps écoulé' : 'Passé'} — c'était ${answerOf(q)}`, 'bad');
     next(1800);
   }
 
@@ -540,7 +543,7 @@ function marathon(kind, region) {
   render(`
     <div class="type-box">
       <div class="hud">
-        <button class="icon-btn" id="quit" aria-label="Abandonner">🏳️</button>
+        <button class="icon-btn" id="quit" aria-label="Abandonner">${icon('flag')}</button>
         <div class="grow center"><b id="count">0</b><span class="muted"> / ${all.length}</span></div>
         <div class="score" id="clock">${fmtTime(limit)}</div>
       </div>
@@ -642,8 +645,8 @@ function results(r) {
       <div class="muted" style="font-weight:700">${esc(title)}</div>
       <div class="score-big">${headline}</div>
       ${r.mode === 'survie' ? '<div class="muted">bonnes réponses</div>' : ''}
-      ${st != null ? `<div class="stars">${[1, 2, 3].map(i => `<span class="${i <= st ? '' : 'off'}">⭐</span>`).join('')}</div>` : ''}
-      ${r.record ? '<div class="record">🎉 Nouveau record !</div>' : ''}
+      ${st != null ? `<div class="stars">${[1, 2, 3].map(i => icon('star', i <= st ? 'on' : '')).join('')}</div>` : ''}
+      ${r.record ? '<div class="record">Nouveau record</div>' : ''}
     </div>
 
     <div class="stat-grid">
@@ -651,22 +654,22 @@ function results(r) {
         ? `<div class="stat"><b>${Math.round(ratio * 100)} %</b><span>trouvés</span></div>
            <div class="stat"><b>${fmtTime(r.seconds)}</b><span>temps</span></div>`
         : `<div class="stat"><b>${(r.score || 0).toLocaleString('fr-FR')}</b><span>points</span></div>
-           <div class="stat"><b>🔥 ${r.bestCombo}</b><span>meilleur combo</span></div>`}
+           <div class="stat"><b>${r.bestCombo}</b><span>meilleur combo</span></div>`}
       <div class="stat"><b>+${r.xp}</b><span>XP</span></div>
     </div>
 
     <div class="card">
-      <div class="row between"><b>${levelUp ? `🎉 Niveau ${after.level} !` : `Niveau ${after.level}`} · ${titleFor(after.level)}</b><span class="muted small">${after.into} / ${after.need}</span></div>
+      <div class="row between"><b>${levelUp ? `Niveau ${after.level} !` : `Niveau ${after.level}`} · ${titleFor(after.level)}</b><span class="muted small">${after.into} / ${after.need}</span></div>
       <div class="bar" style="margin-top:8px"><i id="xpbar" style="width:${levelUp ? 0 : (before.into / before.need) * 100}%"></i></div>
     </div>
 
-    ${earned.map(b => `<div class="badge-new"><span class="ico">${b.icon}</span><div><b>Badge débloqué : ${b.name}</b><br><span class="small">${b.desc}</span></div></div>`).join('')}
+    ${earned.map(b => `<div class="badge-new"><span class="ico">${icon(b.icon)}</span><div><b>Badge débloqué : ${b.name}</b><br><span class="small">${b.desc}</span></div></div>`).join('')}
 
     ${r.answers && r.mode !== 'survie' ? `${gridHtml(resultGrid(r.answers))}` : ''}
 
-    <button class="btn primary" id="share">📣 Partager mon score</button>
+    <button class="btn primary" id="share">${icon('share')} Partager mon score</button>
     <div class="row">
-      ${r.mode === 'daily' ? '' : '<button class="btn blue" id="again">↻ Rejouer</button>'}
+      ${r.mode === 'daily' ? '' : `<button class="btn" id="again">${icon('replay')} Rejouer</button>`}
       <button class="btn" id="home">Accueil</button>
     </div>
 
@@ -716,7 +719,7 @@ async function share(p) {
     const earned = newBadges(S, S.badges);
     S.badges.push(...earned.map(b => b.id));
     save();
-    earned.forEach(b => toast(`${b.icon} Badge débloqué : ${b.name}`));
+    earned.forEach(b => toast(`Badge débloqué : ${b.name}`));
   };
   try {
     if (navigator.share) {
@@ -726,7 +729,7 @@ async function share(p) {
       return credit();
     }
     await navigator.clipboard.writeText(text);
-    toast('Score copié ! Colle-le où tu veux 📋');
+    toast('Score copié, colle-le où tu veux');
     credit();
   } catch (e) {
     if (e?.name !== 'AbortError') toast('Partage impossible sur cet appareil');
@@ -739,7 +742,8 @@ async function shareImage(p, title) {
     const W = 1080, cv = document.createElement('canvas'); cv.width = cv.height = W;
     const x = cv.getContext('2d');
     const INK = '#1f2a48', ORANGE = '#ff8a1f', FONT = '"M PLUS Rounded 1c", ui-rounded, system-ui, sans-serif';
-    await document.fonts?.ready;
+    const DISPLAY = '"Dela Gothic One", "M PLUS Rounded 1c", system-ui, sans-serif';
+    await Promise.race([Promise.all([document.fonts?.load(`64px ${DISPLAY}`), document.fonts?.load(`800 44px ${FONT}`)]), new Promise(r => setTimeout(r, 800))]).catch(() => {});
     // Ciel + nuages
     const sky = x.createLinearGradient(0, 0, 0, W);
     sky.addColorStop(0, '#8fd3ff'); sky.addColorStop(1, '#c9ecff');
@@ -761,9 +765,9 @@ async function shareImage(p, title) {
     x.drawImage(img, W / 2 - 150, 20, 300, 300);
     // Textes
     x.textAlign = 'center'; x.lineJoin = 'round';
-    x.fillStyle = INK; x.font = `900 46px ${FONT}`;
+    x.fillStyle = INK; x.font = `800 44px ${FONT}`;
     x.fillText(title.replace('Flag ada · ', ''), W / 2, 400);
-    x.font = `900 220px ${FONT}`; x.lineWidth = 16; x.strokeStyle = INK;
+    x.font = `200px ${DISPLAY}`; x.lineWidth = 16; x.strokeStyle = INK;
     const big = p.survie ? `${p.correct}` : `${p.correct}/${p.total ?? 10}`;
     x.strokeText(big, W / 2, 610); x.fillStyle = ORANGE; x.fillText(big, W / 2, 610);
     if (p.score != null) {
@@ -771,16 +775,16 @@ async function shareImage(p, title) {
       x.fillText(`${p.score.toLocaleString('fr-FR')} pts`, W / 2, 690);
     }
     if (p.grid) {
-      const cells = [...p.grid.matchAll(/🟩|🟨|🟥/gu)].map(m => m[0]);
-      const size = 58, gap = 14, w = cells.length * (size + gap) - gap;
-      cells.forEach((c, i) => {
-        const X = (W - w) / 2 + i * (size + gap);
-        x.fillStyle = INK; roundRect(x, X, 740, size, size, 14);
-        x.fillStyle = c === '🟩' ? '#36c27a' : c === '🟨' ? '#ffc93c' : '#ff5c5c';
-        roundRect(x, X + 5, 745, size - 10, size - 10, 10);
+      const cells = gridCells(p.grid);
+      const size = 46, gap = 18, w = cells.length * (size + gap) - gap;
+      cells.forEach((ok, i) => {
+        const cx = (W - w) / 2 + i * (size + gap) + size / 2;
+        x.beginPath(); x.arc(cx, 768, size / 2, 0, 7);
+        x.fillStyle = ok ? ORANGE : '#fffdf7'; x.fill();
+        x.lineWidth = 6; x.strokeStyle = INK; x.stroke();
       });
     }
-    x.fillStyle = INK; x.font = `900 64px ${FONT}`;
+    x.fillStyle = INK; x.font = `60px ${DISPLAY}`;
     x.fillText('Flag ada', W / 2, 985);
     x.fillStyle = '#5d6a8c'; x.font = `700 32px ${FONT}`;
     x.fillText(`Tu fais mieux ? ${APP_URL.replace(/^https?:\/\//, '')}`, W / 2, 1036);
@@ -799,9 +803,9 @@ function profile() {
   const recs = Object.entries(S.records);
   render(`
     <header class="row">
-      <button class="icon-btn" id="back" aria-label="Retour">←</button>
+      <button class="icon-btn" id="back" aria-label="Retour">${icon('back')}</button>
       <h2 class="grow">Profil</h2>
-      <button class="icon-btn" id="sound" aria-label="Son">${S.sound ? '🔊' : '🔇'}</button>
+      <button class="icon-btn" id="sound" aria-label="Son">${icon(S.sound ? 'sound' : 'mute')}</button>
     </header>
     <div class="card level-card row">
       <div class="lvl">${lv.level}</div>
@@ -810,17 +814,17 @@ function profile() {
     <div class="stat-grid">
       <div class="stat"><b>${S.games}</b><span>parties</span></div>
       <div class="stat"><b>${S.correct}</b><span>bonnes réponses</span></div>
-      <div class="stat"><b>🔥 ${S.bestStreak}</b><span>meilleure série</span></div>
+      <div class="stat"><b>${S.bestStreak}</b><span>meilleure série</span></div>
     </div>
     <h2>Badges <span class="muted small">${S.badges.length}/${BADGES.length}</span></h2>
     <div class="badges">
-      ${BADGES.map(b => `<div class="badge ${S.badges.includes(b.id) ? '' : 'locked'}"><span class="ico">${b.icon}</span><b>${b.name}</b><span class="muted">${b.desc}</span></div>`).join('')}
+      ${BADGES.map(b => `<div class="badge ${S.badges.includes(b.id) ? '' : 'locked'}"><span class="ico">${icon(b.icon)}</span><b>${b.name}</b><span class="muted">${b.desc}</span></div>`).join('')}
     </div>
     <h2>Records</h2>
     <div class="card">
       ${recs.length ? recs.map(([k, v]) => {
         const [mode, kind, region] = k.split('-');
-        return `<div class="list-row"><span>${MODES[mode].icon} ${KIND[kind].label} · ${REGIONS[region].label}</span><b>${formatRecord(mode, v)}</b></div>`;
+        return `<div class="list-row"><span class="row">${icon(MODES[mode].icon)} ${KIND[kind].label} · ${REGIONS[region].label}</span><b>${formatRecord(mode, v)}</b></div>`;
       }).join('') : '<div class="muted center">Joue une partie pour établir tes records !</div>'}
     </div>
     <button class="btn ghost" id="reset">Réinitialiser ma progression</button>
@@ -834,6 +838,11 @@ function profile() {
 }
 
 // ---------- Démarrage ----------
+// Clavier ouvert : sur écran tactile, un champ actif = clavier affiché. On compacte la question.
+const touch = matchMedia('(pointer: coarse)').matches;
+const syncKeyboard = () => document.body.classList.toggle('kb', touch && document.activeElement?.tagName === 'INPUT');
+document.addEventListener('focusin', syncKeyboard);
+document.addEventListener('focusout', () => setTimeout(syncKeyboard, 50));
 home();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

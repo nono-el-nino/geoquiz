@@ -203,12 +203,12 @@ const RAW = [
 ];
 
 export const REGIONS = {
-  world: { label: 'Monde', emoji: '🌍' },
-  af: { label: 'Afrique', emoji: '🦁' },
-  eu: { label: 'Europe', emoji: '🏰' },
-  as: { label: 'Asie', emoji: '🏯' },
-  am: { label: 'Amériques', emoji: '🌎' },
-  oc: { label: 'Océanie', emoji: '🏝️' },
+  world: { label: 'Monde' },
+  af: { label: 'Afrique' },
+  eu: { label: 'Europe' },
+  as: { label: 'Asie' },
+  am: { label: 'Amériques' },
+  oc: { label: 'Océanie' },
 };
 
 export const COUNTRIES = RAW.map(([code, name, capital, continent, nameAliases = [], capitalAliases = []]) => ({

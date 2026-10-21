@@ -1,6 +1,6 @@
 // Cache hors-ligne : l'app fonctionne sans réseau après la première visite.
-const CACHE = 'flagada-v3';
-const FILES = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/game.js', 'js/data.js', 'js/mascot.js', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'manifest.webmanifest'];
+const CACHE = 'flagada-v4';
+const FILES = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/game.js', 'js/data.js', 'js/mascot.js', 'js/icons.js', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'manifest.webmanifest'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

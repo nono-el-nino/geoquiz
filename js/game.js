@@ -119,21 +119,21 @@ export function updateStreak(state, today = dayKey()) {
 }
 
 export const BADGES = [
-  { id: 'first', icon: '🎒', name: 'Premier voyage', desc: 'Termine ta première partie', test: s => s.games >= 1 },
-  { id: 'perfect', icon: '💯', name: 'Sans faute', desc: '10/10 en Éclair ou Saisie', test: s => s.perfects >= 1 },
-  { id: 'combo10', icon: '🔥', name: 'En feu', desc: 'Combo de 10 bonnes réponses', test: s => s.bestCombo >= 10 },
-  { id: 'speed', icon: '⚡', name: 'Éclair', desc: '10/10 en moins de 25 s', test: s => s.speedrun },
-  { id: 'survive25', icon: '❤️', name: 'Survivant', desc: '25 bonnes réponses en Survie', test: s => s.bestSurvival >= 25 },
-  { id: 'streak3', icon: '📅', name: 'Habitué', desc: '3 jours de suite', test: s => s.bestStreak >= 3 },
-  { id: 'streak7', icon: '🗓️', name: 'Fidèle', desc: '7 jours de suite', test: s => s.bestStreak >= 7 },
-  { id: 'streak30', icon: '🏆', name: 'Inarrêtable', desc: '30 jours de suite', test: s => s.bestStreak >= 30 },
-  { id: 'daily7', icon: '🌅', name: 'Lève-tôt', desc: '7 défis du jour terminés', test: s => s.dailies >= 7 },
-  { id: 'share', icon: '📣', name: 'Ambassadeur', desc: 'Partage un score', test: s => s.shares >= 1 },
-  { id: 'c100', icon: '🧭', name: 'Boussole', desc: '100 bonnes réponses au total', test: s => s.correct >= 100 },
-  { id: 'c1000', icon: '🛰️', name: 'Satellite', desc: '1 000 bonnes réponses au total', test: s => s.correct >= 1000 },
-  { id: 'region', icon: '🗺️', name: 'Continent conquis', desc: 'Termine un Marathon de continent à 100 %', test: s => (s.marathonDone || []).length >= 1 },
-  { id: 'flags193', icon: '🏳️', name: 'Vexillologue', desc: 'Les 193 drapeaux en Marathon', test: s => (s.marathonDone || []).includes('flags-world') },
-  { id: 'caps193', icon: '🏛️', name: 'Maître des capitales', desc: 'Les 193 capitales en Marathon', test: s => (s.marathonDone || []).includes('capitals-world') },
+  { id: 'first', icon: 'plane', name: 'Premier voyage', desc: 'Termine ta première partie', test: s => s.games >= 1 },
+  { id: 'perfect', icon: 'target', name: 'Sans faute', desc: '10/10 en Éclair ou Saisie', test: s => s.perfects >= 1 },
+  { id: 'combo10', icon: 'flame', name: 'En feu', desc: 'Combo de 10 bonnes réponses', test: s => s.bestCombo >= 10 },
+  { id: 'speed', icon: 'bolt', name: 'Éclair', desc: '10/10 en moins de 25 s', test: s => s.speedrun },
+  { id: 'survive25', icon: 'heart', name: 'Survivant', desc: '25 bonnes réponses en Survie', test: s => s.bestSurvival >= 25 },
+  { id: 'streak3', icon: 'calendar', name: 'Habitué', desc: '3 jours de suite', test: s => s.bestStreak >= 3 },
+  { id: 'streak7', icon: 'sparkle', name: 'Fidèle', desc: '7 jours de suite', test: s => s.bestStreak >= 7 },
+  { id: 'streak30', icon: 'trophy', name: 'Inarrêtable', desc: '30 jours de suite', test: s => s.bestStreak >= 30 },
+  { id: 'daily7', icon: 'sunrise', name: 'Lève-tôt', desc: '7 défis du jour terminés', test: s => s.dailies >= 7 },
+  { id: 'share', icon: 'share', name: 'Ambassadeur', desc: 'Partage un score', test: s => s.shares >= 1 },
+  { id: 'c100', icon: 'compass', name: 'Boussole', desc: '100 bonnes réponses au total', test: s => s.correct >= 100 },
+  { id: 'c1000', icon: 'globe', name: 'Satellite', desc: '1 000 bonnes réponses au total', test: s => s.correct >= 1000 },
+  { id: 'region', icon: 'map', name: 'Continent conquis', desc: 'Termine un Marathon de continent à 100 %', test: s => (s.marathonDone || []).length >= 1 },
+  { id: 'flags193', icon: 'flag', name: 'Vexillologue', desc: 'Les 193 drapeaux en Marathon', test: s => (s.marathonDone || []).includes('flags-world') },
+  { id: 'caps193', icon: 'landmark', name: 'Maître des capitales', desc: 'Les 193 capitales en Marathon', test: s => (s.marathonDone || []).includes('capitals-world') },
 ];
 
 export function newBadges(stats, owned) {
@@ -142,14 +142,14 @@ export function newBadges(stats, owned) {
 
 // ---------- Partage ----------
 export function shareText({ title, correct, total, score, grid, url }) {
-  const lines = [`🌍 ${title}`, `${total != null ? `${correct}/${total}` : `${correct} bonnes réponses`}${score != null ? ` · ${score.toLocaleString('fr-FR')} pts` : ''}`];
+  const lines = [title, `${total != null ? `${correct}/${total}` : `${correct} bonnes réponses`}${score != null ? ` · ${score.toLocaleString('fr-FR')} pts` : ''}`];
   if (grid) lines.push(grid);
-  lines.push('Tu fais mieux ? 👉 ' + url);
+  lines.push('Tu fais mieux ? ' + url);
   return lines.join('\n');
 }
 
 export function resultGrid(answers) {
-  return answers.map(a => (a.correct ? (a.fast ? '🟩' : '🟨') : '🟥')).join('');
+  return answers.map(a => (a.correct ? '🟧' : '⬜')).join('');
 }
 
 // ---------- Saisie souple (mode Saisie, et noms partiels en Marathon) ----------
