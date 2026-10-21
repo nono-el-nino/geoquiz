@@ -1,5 +1,5 @@
 // Cache hors-ligne : l'app fonctionne sans réseau après la première visite.
-const CACHE = 'geoblitz-v1';
+const CACHE = 'geoblitz-v2';
 const FILES = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/game.js', 'js/data.js', 'icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', e => {

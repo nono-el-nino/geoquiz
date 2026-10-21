@@ -71,3 +71,42 @@ test('badges et texte de partage', () => {
   assert.match(t, /8\/10 · 1\s?520 pts/);
   assert.match(shareText({ title: 'Survie', correct: 12, total: null, url: 'u' }), /12 bonnes réponses/);
 });
+
+import { checkTyped, suggest, hintFor, answerIndex } from '../js/game.js';
+const C = code => COUNTRIES.find(c => c.code === code);
+
+test('Saisie : fautes de frappe et noms partiels acceptés', () => {
+  for (const [input, code, kind] of [
+    ['burkina', 'bf', 'flags'], ['Burkina Fasso', 'bf', 'flags'], ['zambei', 'zm', 'flags'],
+    ['equatoriale', 'gq', 'flags'], ['etats unis', 'us', 'flags'], ['rdc', 'cd', 'flags'],
+    ['ouagadougu', 'bf', 'capitals'], ['moresby', 'pg', 'capitals'], ['canbera', 'au', 'capitals'], ['delhi', 'in', 'capitals'],
+  ]) assert.ok(checkTyped(input, C(code), kind).ok, `${input} devrait être accepté`);
+});
+
+test('Saisie : refuse les réponses ambiguës ou qui désignent un autre pays', () => {
+  for (const [input, code, kind] of [
+    ['gambie', 'zm', 'flags'], ['corée', 'kr', 'flags'], ['guinée', 'gq', 'flags'], ['niger', 'ng', 'flags'],
+    ['irak', 'ir', 'flags'], ['soudan', 'ss', 'flags'], ['congo', 'cd', 'flags'], ['sydney', 'au', 'capitals'], ['port', 'pg', 'capitals'],
+  ]) assert.ok(!checkTyped(input, C(code), kind).ok, `${input} devrait être refusé`);
+});
+
+test('Saisie : la bonne réponse complète est toujours acceptée, pour les 193 pays', () => {
+  for (const kind of ['flags', 'capitals']) for (const c of COUNTRIES) {
+    assert.ok(checkTyped(kind === 'flags' ? c.name : c.capital, c, kind).ok, `${kind} ${c.name}`);
+  }
+});
+
+test('Un mot partiel ne désigne jamais deux pays', () => {
+  for (const kind of ['flags', 'capitals']) {
+    const seen = new Map();
+    for (const [code, { parts }] of answerIndex(kind)) for (const p of parts) {
+      assert.ok(!seen.has(p), `${p} : ${seen.get(p)} / ${code}`); seen.set(p, code);
+    }
+  }
+});
+
+test('aide à la saisie et indice', () => {
+  assert.deepEqual(suggest('bu', 'flags'), ['Bulgarie', 'Burkina Faso', 'Burundi']);
+  assert.deepEqual(suggest('b', 'flags'), []);
+  assert.equal(hintFor('Port-Louis'), 'P _ _ _ - _ _ _ _ _');
+});

@@ -3,6 +3,7 @@ import {
   shuffle, makeQuiz, makeQuestion, dailyQuiz, dayKey, dayNumber, QUESTION_TIME,
   questionPoints, comboMultiplier, stars, matchTyped, levelFromXp, titleFor,
   updateStreak, BADGES, newBadges, shareText, resultGrid,
+  TYPING_TIME, checkTyped, suggest, hintFor,
 } from './game.js';
 
 const app = document.getElementById('app');
@@ -13,6 +14,7 @@ const KIND = {
 };
 const MODES = {
   eclair: { label: 'Éclair', icon: '⚡', desc: '10 questions, 10 s chacune. Vise le combo !' },
+  saisie: { label: 'Saisie', icon: '✍️', desc: '10 questions à écrire, 25 s chacune. Orthographe souple, aide à la saisie.' },
   survie: { label: 'Survie', icon: '❤️', desc: '3 vies. Jusqu’où iras-tu ?' },
   marathon: { label: 'Marathon', icon: '⌨️', desc: 'Tape-les tous avant la fin du chrono.' },
 };
@@ -210,7 +212,7 @@ function setup(kind) {
 }
 
 function formatRecord(mode, rec) {
-  if (mode === 'eclair') return `${rec.toLocaleString('fr-FR')} pts`;
+  if (mode === 'eclair' || mode === 'saisie') return `${rec.toLocaleString('fr-FR')} pts`;
   if (mode === 'survie') return `${rec} bonnes réponses`;
   return `${rec.found}/${rec.total}`;
 }
@@ -218,6 +220,7 @@ function formatRecord(mode, rec) {
 function start(kind) {
   const { mode, region } = pick;
   if (mode === 'marathon') return marathon(kind, region);
+  if (mode === 'saisie') return playTyping({ mode, kind, region, questions: makeQuiz({ kind, region, count: 10 }) });
   if (mode === 'eclair') return playChoice({ mode, kind, region, questions: makeQuiz({ kind, region, count: 10 }) });
   // Survie : on parcourt la zone dans un ordre aléatoire
   const order = shuffle(countriesFor(region));
@@ -311,33 +314,187 @@ function playChoice(cfg) {
 
   function finish() {
     cancelAnimationFrame(raf);
-    const correct = g.answers.filter(a => a.correct).length;
-    const total = cfg.mode === 'survie' ? correct : count;
-    const seconds = (performance.now() - g.startedAt) / 1000;
-    S.games++; S.correct += correct; S.bestCombo = Math.max(S.bestCombo, g.bestCombo);
-    let record = false, xp;
-    if (cfg.mode === 'survie') {
-      xp = correct * 8;
-      const key = `survie-${cfg.kind}-${cfg.region}`;
-      if (correct > (S.records[key] || 0)) { record = S.records[key] != null; S.records[key] = correct; }
-      S.bestSurvival = Math.max(S.bestSurvival, correct);
-    } else {
-      xp = Math.round(g.score / 20) + (correct === total ? 50 : 0);
-      if (correct === total) S.perfects++;
-      if (correct === total && seconds < 25) S.speedrun = true;
-      if (cfg.mode === 'eclair') {
-        const key = `eclair-${cfg.kind}-${cfg.region}`;
-        if (g.score > (S.records[key] || 0)) { record = S.records[key] != null; S.records[key] = g.score; }
-      } else {
-        S.dailies++;
-        xp += 30;
-        S.daily = { key: dayKey(), correct, score: g.score, grid: resultGrid(g.answers) };
-      }
-    }
-    results({ ...cfg, ...g, correct, total, xp, record });
+    finishQuiz(cfg, g, count);
   }
 
   show();
+}
+
+function finishQuiz(cfg, g, count) {
+  const correct = g.answers.filter(a => a.correct).length;
+  const total = cfg.mode === 'survie' ? correct : count;
+  const seconds = (performance.now() - g.startedAt) / 1000;
+  S.games++; S.correct += correct; S.bestCombo = Math.max(S.bestCombo, g.bestCombo);
+  let record = false, xp;
+  if (cfg.mode === 'survie') {
+    xp = correct * 8;
+    const key = `survie-${cfg.kind}-${cfg.region}`;
+    if (correct > (S.records[key] || 0)) { record = S.records[key] != null; S.records[key] = correct; }
+    S.bestSurvival = Math.max(S.bestSurvival, correct);
+  } else {
+    // La saisie est plus dure que le QCM : un peu plus d'XP
+    xp = Math.round(g.score / (cfg.mode === 'saisie' ? 15 : 20)) + (correct === total ? 50 : 0);
+    if (correct === total) S.perfects++;
+    if (cfg.mode === 'eclair' && correct === total && seconds < 25) S.speedrun = true;
+    if (cfg.mode === 'daily') {
+      S.dailies++;
+      xp += 30;
+      S.daily = { key: dayKey(), correct, score: g.score, grid: resultGrid(g.answers) };
+    } else {
+      const key = `${cfg.mode}-${cfg.kind}-${cfg.region}`;
+      if (g.score > (S.records[key] || 0)) { record = S.records[key] != null; S.records[key] = g.score; }
+    }
+  }
+  results({ ...cfg, ...g, correct, total, xp, record });
+}
+
+// ---------- Saisie : une question à la fois, réponse écrite ----------
+// L'écran est construit une seule fois : le champ garde le focus et le clavier reste ouvert.
+function playTyping(cfg) {
+  const g = { score: 0, combo: 0, bestCombo: 0, answers: [], startedAt: performance.now() };
+  const count = cfg.questions.length;
+  let idx = 0, q = null, locked = true, raf = 0, qStart = 0, hinted = false;
+
+  render(`
+    <div class="hud">
+      <button class="icon-btn" id="quit" aria-label="Quitter">✕</button>
+      <div class="grow center"><b id="qnum">1</b><span class="muted"> / ${count}</span></div>
+      <div class="score" id="score">0</div>
+    </div>
+    <div class="bar timer" id="timer"><i style="width:100%"></i></div>
+    <div class="prompt typing" id="prompt"></div>
+    <form class="type-answer" id="form" autocomplete="off">
+      <input id="typed" enterkeyhint="go" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Ta réponse">
+      <button class="btn green" id="ok" type="submit" aria-label="Valider">✓</button>
+    </form>
+    <div class="suggests" id="suggests"></div>
+    <div id="feedback" class="feedback" aria-live="assertive"></div>
+    <div class="row">
+      <button class="btn ghost keep" id="hint" type="button">💡 Indice</button>
+      <button class="btn ghost keep" id="skip" type="button">Passer ⏭</button>
+    </div>
+  `, () => {
+    const input = document.getElementById('typed');
+    // Les boutons ne prennent pas le focus : le clavier ne se ferme pas.
+    app.querySelectorAll('.keep, #ok').forEach(b => b.addEventListener('pointerdown', e => e.preventDefault()));
+    on('#quit', 'click', () => { if (confirm('Quitter la partie ?')) home(); });
+    document.getElementById('form').addEventListener('submit', e => { e.preventDefault(); submit(input.value); });
+    input.addEventListener('input', () => { input.classList.remove('shake'); showSuggestions(); });
+    on('#hint', 'click', () => {
+      if (locked || hinted) return;
+      hinted = true;
+      feedback(`💡 ${hintFor(answerOf(q))}`, 'hint');
+      document.getElementById('hint').disabled = true;
+      input.focus();
+    });
+    on('#skip', 'click', () => !locked && fail());
+    document.getElementById('suggests').addEventListener('pointerdown', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      e.preventDefault();
+      submit(b.dataset.v);
+    });
+    cleanup = () => cancelAnimationFrame(raf);
+    show();
+    input.focus();
+  });
+
+  const answerOf = x => (x.kind === 'flags' ? x.country.name : x.country.capital);
+
+  function show() {
+    q = cfg.questions[idx];
+    if (!q) return finish();
+    locked = false; hinted = false;
+    const c = q.country;
+    document.getElementById('qnum').textContent = idx + 1;
+    document.getElementById('prompt').innerHTML = q.kind === 'flags'
+      ? `${flag(c.code)}<div class="q">Quel est ce pays&nbsp;?</div>`
+      : `${flag(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Quelle est sa capitale&nbsp;?</div>`;
+    const input = document.getElementById('typed');
+    input.value = ''; input.classList.remove('shake', 'ok'); input.placeholder = q.kind === 'flags' ? 'Nom du pays…' : 'Nom de la capitale…';
+    document.getElementById('hint').disabled = false;
+    document.getElementById('suggests').innerHTML = '';
+    feedback(g.combo >= 3 ? `🔥 Combo ${g.combo} · x${comboMultiplier(g.combo)}` : '', 'combo');
+    tick();
+  }
+
+  function showSuggestions() {
+    const box = document.getElementById('suggests');
+    const v = document.getElementById('typed').value;
+    box.innerHTML = locked ? '' : suggest(v, q.kind).map(s => `<button type="button" data-v="${esc(s)}">${esc(s)}</button>`).join('');
+  }
+
+  function feedback(text, cls = '') {
+    const el = document.getElementById('feedback');
+    el.className = `feedback ${cls}`; el.textContent = text;
+  }
+
+  function tick() {
+    qStart = performance.now();
+    const bar = document.getElementById('timer'), fill = bar.firstElementChild;
+    const loop = now => {
+      const left = TYPING_TIME - (now - qStart) / 1000;
+      fill.style.width = `${Math.max(0, left / TYPING_TIME) * 100}%`;
+      bar.className = `bar timer ${left < 5 ? 'danger' : left < 10 ? 'warn' : ''}`;
+      if (left <= 0) return fail(true);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+  }
+
+  function submit(value) {
+    if (locked || !value.trim()) return;
+    const r = checkTyped(value, q.country, q.kind);
+    const input = document.getElementById('typed');
+    if (!r.ok) {
+      // Mauvaise réponse : on peut réessayer tant qu'il reste du temps.
+      beep(false); buzz([30, 30, 30]);
+      input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
+      feedback(r.other ? `❌ Ça, c'est ${q.kind === 'flags' ? r.other.name : `la capitale : ${r.other.name}`}` : '❌ Non, réessaie !', 'bad');
+      input.select();
+      return;
+    }
+    const left = TYPING_TIME - (performance.now() - qStart) / 1000;
+    g.combo++;
+    g.bestCombo = Math.max(g.bestCombo, g.combo);
+    let pts = questionPoints(true, left, g.combo, TYPING_TIME);
+    if (hinted) pts = Math.round(pts / 2);
+    g.score += pts;
+    g.answers.push({ country: q.country, kind: q.kind, correct: true, fast: left > TYPING_TIME / 2 && !hinted });
+    document.getElementById('score').textContent = g.score.toLocaleString('fr-FR');
+    input.value = answerOf(q);
+    input.classList.add('ok');
+    feedback(r.exact ? '✅ Exact !' : `✅ Accepté : ${answerOf(q)}`, 'good');
+    beep(true); buzz(15);
+    popCombo(g.combo >= 3 && g.combo % 3 === 0 ? `x${comboMultiplier(g.combo)} COMBO 🔥` : `+${pts}`);
+    next(r.exact ? 700 : 1300);
+  }
+
+  function fail(timeout = false) {
+    if (locked) return;
+    g.combo = 0;
+    g.answers.push({ country: q.country, kind: q.kind, correct: false });
+    beep(false); buzz([40, 40, 40]);
+    feedback(`${timeout ? '⏰ Temps écoulé' : '⏭ Passé'} — c'était ${answerOf(q)}`, 'bad');
+    next(1800);
+  }
+
+  function next(delay) {
+    locked = true;
+    cancelAnimationFrame(raf);
+    document.getElementById('suggests').innerHTML = '';
+    idx++;
+    setTimeout(() => {
+      if (!document.getElementById('typed')) return; // écran quitté
+      document.getElementById('typed').classList.remove('ok');
+      idx >= count ? finish() : show();
+    }, delay);
+  }
+
+  function finish() {
+    cancelAnimationFrame(raf);
+    finishQuiz(cfg, g, count);
+  }
 }
 
 function popCombo(text) {

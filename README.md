@@ -5,8 +5,9 @@ Quiz de géographie mobile inspiré de JetPunk : **drapeaux** et **capitales** d
 ## Jouer
 - **Défi du jour** : 10 questions identiques pour tout le monde (5 drapeaux, 5 capitales), un essai par jour, résultat partageable façon Wordle (🟩 rapide, 🟨 lent, 🟥 raté).
 - **Éclair** : 10 questions à 4 choix, 10 s chacune. Bonus de vitesse et multiplicateur de combo (jusqu'à x3).
+- **Saisie** : 10 questions où l'on écrit la réponse, 25 s chacune. Orthographe souple (fautes de frappe tolérées, sans accents), un mot suffit pour les noms composés s'il n'est pas ambigu (« Burkina », « Moresby » ; mais pas « Corée » ni « Guinée »). Propositions automatiques pendant la frappe, bouton 💡 Indice (première lettre et longueur, points divisés par 2), possibilité de réessayer ou de passer.
 - **Survie** : 3 vies, jusqu'à épuisement de la zone.
-- **Marathon** (à la JetPunk) : on tape un maximum de réponses avant la fin du chrono. Pas d'accents ni de validation nécessaires.
+- **Marathon** (à la JetPunk) : on tape un maximum de réponses avant la fin du chrono. Pas d'accents ni de validation nécessaires ; un mot non ambigu suffit.
 - Zones : Monde, Afrique, Europe, Asie, Amériques, Océanie.
 
 ## Gamification

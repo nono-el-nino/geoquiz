@@ -220,3 +220,27 @@ img.flag { height: .75em; width: auto; border-radius: 3px; vertical-align: -0.05
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Mode Saisie ---------- */
+.prompt.typing { min-height: 0; padding-top: 4px; }
+.prompt.typing .flag { font-size: 110px; }
+.prompt.typing .flag.small { font-size: 56px; }
+.prompt.typing .q { font-size: 20px; }
+.type-answer { display: flex; gap: 8px; }
+.type-answer input {
+  flex: 1; min-width: 0; padding: 14px 16px; font-size: 20px; border-radius: 14px;
+  border: 3px solid var(--card2); background: #0c0f2c; color: var(--text); outline: none;
+  user-select: text; -webkit-user-select: text;
+}
+.type-answer input:focus { border-color: var(--accent); }
+.type-answer input.ok { border-color: var(--green); }
+.type-answer input.shake { border-color: var(--red); animation: shake .35s; }
+.type-answer .btn { width: 64px; min-height: 0; padding: 0; font-size: 24px; }
+.suggests { display: flex; flex-wrap: wrap; gap: 8px; min-height: 0; }
+.suggests button { background: var(--card2); border-radius: 999px; padding: 10px 14px; font-weight: 700; }
+.feedback { min-height: 24px; text-align: center; font-weight: 800; }
+.feedback.good { color: var(--green); }
+.feedback.bad { color: #ff9aa0; }
+.feedback.hint { color: var(--accent); letter-spacing: 1px; font-size: 18px; }
+.feedback.combo { color: var(--accent); }
+.btn:disabled { opacity: .4; }

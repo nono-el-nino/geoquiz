@@ -66,9 +66,9 @@ export function comboMultiplier(streak) {
   return Math.min(3, 1 + Math.floor(streak / 3) * 0.5);
 }
 
-export function questionPoints(correct, secondsLeft, streak) {
+export function questionPoints(correct, secondsLeft, streak, duration = QUESTION_TIME) {
   if (!correct) return 0;
-  const speed = Math.round(100 * Math.max(0, secondsLeft) / QUESTION_TIME);
+  const speed = Math.round(100 * Math.max(0, secondsLeft) / duration);
   return Math.round((100 + speed) * comboMultiplier(streak));
 }
 
@@ -85,8 +85,9 @@ export function matchTyped(input, remaining, kind) {
   if (!n) return null;
   let hit = null;
   let ambiguous = false;
+  const idx = answerIndex(kind);
   for (const c of remaining) {
-    for (const a of acceptedAnswers(c, kind)) {
+    for (const a of [...idx.get(c.code).full, ...idx.get(c.code).parts]) {
       if (a === n) hit = hit || c;
       else if (a.startsWith(n)) ambiguous = true;
     }
@@ -119,7 +120,7 @@ export function updateStreak(state, today = dayKey()) {
 
 export const BADGES = [
   { id: 'first', icon: '🎒', name: 'Premier voyage', desc: 'Termine ta première partie', test: s => s.games >= 1 },
-  { id: 'perfect', icon: '💯', name: 'Sans faute', desc: '10/10 en mode Éclair', test: s => s.perfects >= 1 },
+  { id: 'perfect', icon: '💯', name: 'Sans faute', desc: '10/10 en Éclair ou Saisie', test: s => s.perfects >= 1 },
   { id: 'combo10', icon: '🔥', name: 'En feu', desc: 'Combo de 10 bonnes réponses', test: s => s.bestCombo >= 10 },
   { id: 'speed', icon: '⚡', name: 'Éclair', desc: '10/10 en moins de 25 s', test: s => s.speedrun },
   { id: 'survive25', icon: '❤️', name: 'Survivant', desc: '25 bonnes réponses en Survie', test: s => s.bestSurvival >= 25 },
@@ -149,4 +150,98 @@ export function shareText({ title, correct, total, score, grid, url }) {
 
 export function resultGrid(answers) {
   return answers.map(a => (a.correct ? (a.fast ? '🟩' : '🟨') : '🟥')).join('');
+}
+
+// ---------- Saisie souple (mode Saisie, et noms partiels en Marathon) ----------
+export const TYPING_TIME = 25; // secondes
+
+// Mots trop génériques pour suffire seuls ("République", "Saint", "Port"…)
+const STOP = new Set(['de', 'du', 'des', 'la', 'le', 'les', 'et', 'iles', 'ile', 'republique', 'democratique',
+  'saint', 'sainte', 'san', 'port', 'nord', 'sud', 'city', 'new', 'nouvelle']);
+
+function words(s) {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !STOP.has(w));
+}
+
+// Pour chaque pays : réponses complètes + mots qui le désignent sans ambiguïté
+// (ex. "Burkina" pour Burkina Faso, "Moresby" pour Port Moresby, mais pas "Corée" ni "Guinée").
+const INDEX = {};
+export function answerIndex(kind) {
+  if (INDEX[kind]) return INDEX[kind];
+  const raw = c => (kind === 'flags' ? [c.name, ...c.nameAliases] : [c.capital, ...c.capitalAliases]);
+  const full = new Map(COUNTRIES.map(c => [c.code, acceptedAnswers(c, kind)]));
+  const allFull = new Set([...full.values()].flat());
+  const owners = new Map();
+  for (const c of COUNTRIES) for (const w of new Set(raw(c).flatMap(words))) owners.set(w, (owners.get(w) || 0) + 1);
+  const idx = new Map();
+  for (const c of COUNTRIES) {
+    const parts = [...new Set(raw(c).flatMap(words))]
+      .filter(w => owners.get(w) === 1 && !full.get(c.code).includes(w) && !allFull.has(w));
+    idx.set(c.code, { full: full.get(c.code), parts });
+  }
+  return (INDEX[kind] = idx);
+}
+
+// Distance d'édition (une inversion de deux lettres compte pour une faute)
+export function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+// Fautes tolérées selon la longueur du mot
+export function tolerance(len) {
+  return len <= 3 ? 0 : len <= 6 ? 1 : len <= 10 ? 2 : 3;
+}
+
+// Vérifie une réponse tapée. Refusée si elle désigne mieux un autre pays (ex. "Gambie" pour la Zambie).
+export function checkTyped(input, target, kind) {
+  const n = normalize(input);
+  if (n.length < 2) return { ok: false };
+  const idx = answerIndex(kind);
+  const best = (code, withinTolerance) => {
+    const { full, parts } = idx.get(code);
+    let min = Infinity;
+    for (const a of [...full, ...parts]) {
+      const d = editDistance(n, a);
+      if ((!withinTolerance || d <= tolerance(a.length)) && d < min) min = d;
+    }
+    return min;
+  };
+  const mine = best(target.code, true);
+  if (mine === Infinity) return { ok: false };
+  for (const c of COUNTRIES) {
+    if (c.code !== target.code && best(c.code, false) < mine) return { ok: false, other: c };
+  }
+  return { ok: true, exact: mine === 0 && idx.get(target.code).full.includes(n) };
+}
+
+// Aide à la saisie : propositions qui commencent comme ce qui est tapé
+export function suggest(input, kind, limit = 4) {
+  const n = normalize(input);
+  if (n.length < 2) return [];
+  const label = c => (kind === 'flags' ? c.name : c.capital);
+  const scored = [];
+  for (const c of COUNTRIES) {
+    const name = normalize(label(c));
+    const rank = name.startsWith(n) ? 0
+      : words(label(c)).some(w => w.startsWith(n)) || acceptedAnswers(c, kind).some(a => a.startsWith(n)) ? 1 : -1;
+    if (rank >= 0) scored.push({ c, rank });
+  }
+  const seen = new Set();
+  return scored.sort((a, b) => a.rank - b.rank || label(a.c).localeCompare(label(b.c), 'fr'))
+    .map(s => label(s.c)).filter(l => !seen.has(l) && seen.add(l)).slice(0, limit);
+}
+
+// Indice : première lettre et longueur, ex. "O _ _ _ _ _ _ _ _ _ _"
+export function hintFor(answer) {
+  return [...answer].map((ch, i) => (i === 0 ? ch.toUpperCase() : /[\s'’-]/.test(ch) ? ch : '_')).join(' ');
 }
