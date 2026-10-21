@@ -1,0 +1,15 @@
+{
+  "name": "GéoBlitz — Drapeaux & Capitales",
+  "short_name": "GéoBlitz",
+  "description": "Quiz de géographie : drapeaux et capitales des 193 pays de l'ONU.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12153a",
+  "theme_color": "#12153a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
