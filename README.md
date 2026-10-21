@@ -1,4 +1,6 @@
-# GéoBlitz 🌍⚡
+# Flag ada 🐦✈️
+
+*Le quiz qui te met à plat.* Flagada, petit oiseau aviateur complètement perdu, cherche son chemin entre les drapeaux et les capitales.
 
 Quiz de géographie mobile inspiré de JetPunk : **drapeaux** et **capitales** des **193 États membres de l'ONU**.
 
@@ -13,6 +15,9 @@ Quiz de géographie mobile inspiré de JetPunk : **drapeaux** et **capitales** d
 ## Gamification
 XP et niveaux avec titres (Touriste → Atlas vivant), série de jours 🔥, 15 badges, records par mode/zone, confettis, sons et vibrations, partage du score (texte + image 1080×1080 via le menu de partage du téléphone, ou copie dans le presse-papiers).
 
+## Direction artistique
+Cartoon japonais épuré : contours encre épais, aplats orange mandarine (`#ff8a1f`) et bleu ciel (`#8fd3ff`), cartes et drapeaux façon autocollants (bord blanc découpé, légère rotation), police arrondie M PLUS Rounded 1c. La mascotte (`js/mascot.js`, SVG) a trois humeurs : perdue, contente, sonnée.
+
 ## Technique
 Application web installable (PWA), sans dépendance ni build : HTML/CSS/JS. Fonctionne hors ligne après la première visite. Progression stockée sur l'appareil (localStorage).
 
@@ -24,4 +29,4 @@ npm test                      # tests de la logique et des données
 
 Pour l'installer sur un téléphone, il faut l'héberger en HTTPS (GitHub Pages, Netlify, Vercel…), l'ouvrir puis « Ajouter à l'écran d'accueil ».
 
-Fichiers : `js/data.js` (pays, capitales, réponses acceptées), `js/game.js` (règles, score, badges), `js/app.js` (écrans).
+Fichiers : `js/data.js` (pays, capitales, réponses acceptées), `js/game.js` (règles, score, badges), `js/app.js` (écrans), `js/mascot.js` (mascotte).

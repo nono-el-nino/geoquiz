@@ -1,4 +1,5 @@
 import { REGIONS, countriesFor, flagEmoji } from './data.js';
+import { mascot } from './mascot.js';
 import {
   shuffle, makeQuiz, makeQuestion, dailyQuiz, dayKey, dayNumber, QUESTION_TIME,
   questionPoints, comboMultiplier, stars, matchTyped, levelFromXp, titleFor,
@@ -54,6 +55,24 @@ function flag(code, cls = '') {
     : `<img class="flag ${cls}" alt="" src="https://flagcdn.com/w320/${code}.png">`;
 }
 
+// Grille de résultat dessinée (les émojis 🟩🟨🟥 restent pour le texte partagé)
+function gridHtml(grid) {
+  return `<div class="grid" aria-label="${grid}">${[...grid.matchAll(/🟩|🟨|🟥/gu)].map(m => `<i class="${m[0] === '🟩' ? 'g' : m[0] === '🟨' ? 'y' : ''}"></i>`).join('')}</div>`;
+}
+
+function flagSticker(code, cls = '') {
+  return `<span class="flag-sticker ${cls}">${flag(code)}</span>`;
+}
+
+// Répliques de la mascotte
+const pickLine = list => list[Math.floor(Math.random() * list.length)];
+const LINES = {
+  lost: ['Euh… c’est par où, l’Australie ?', 'J’ai encore perdu le nord…', 'Ma carte est à l’envers, non ?', 'Tout droit après le Kazakhstan ?', 'Quelqu’un a vu Tuvalu ?'],
+  happy: ['Je sais enfin où je suis !', 'Quel sens de l’orientation !', 'Atterrissage parfait !'],
+  middle: ['Pas mal… je crois ?', 'On y est presque !', 'J’ai juste fait un petit détour.'],
+  dizzy: ['Je suis complètement flagada…', 'Atterrissage d’urgence !', 'Qui a retourné la planète ?'],
+};
+
 let toastTimer;
 function toast(msg) {
   const t = document.getElementById('toast');
@@ -83,7 +102,7 @@ function confetti() {
   const cv = document.getElementById('confetti'), ctx = cv.getContext('2d');
   cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio;
   ctx.scale(devicePixelRatio, devicePixelRatio);
-  const colors = ['#ffcc33', '#2ed47a', '#3d6bff', '#ff5a64', '#ff8a3d', '#fff'];
+  const colors = ['#ff8a1f', '#2f9be8', '#ffc93c', '#36c27a', '#ff5c5c', '#1f2a48'];
   const parts = Array.from({ length: 140 }, () => ({
     x: innerWidth / 2, y: innerHeight / 3, vx: (Math.random() - .5) * 14, vy: Math.random() * -14 - 4,
     s: 6 + Math.random() * 6, c: colors[Math.floor(Math.random() * colors.length)], r: Math.random() * 6, vr: (Math.random() - .5) * .4,
@@ -117,14 +136,19 @@ function home() {
   const done = S.daily?.key === today ? S.daily : null;
   render(`
     <header class="row between">
-      <div class="logo">Géo<b>Blitz</b></div>
+      <div class="logo">Flag <b>ada</b><small>Drapeaux & capitales</small></div>
       <div class="row">
         <span class="chip" title="Jours joués d'affilée">🔥 ${S.lastPlayed === today || isYesterday(S.lastPlayed) ? S.streak : 0}</span>
         <button class="icon-btn" id="profile" aria-label="Profil et badges">🏅</button>
       </div>
     </header>
 
-    <button class="card level-card row" id="profile2" style="text-align:left">
+    <div class="hero">
+      <div class="bird">${mascot('lost')}</div>
+      <div class="bubble">${pickLine(LINES.lost)}</div>
+    </div>
+
+    <button class="card level-card" id="profile2">
       <div class="lvl">${lv.level}</div>
       <div class="grow">
         <div class="row between"><b>${titleFor(lv.level)}</b><span class="muted small">${lv.into} / ${lv.need} XP</span></div>
@@ -133,13 +157,12 @@ function home() {
     </button>
 
     <section class="card daily">
-      <div class="big-emoji">🌍</div>
-      <div class="small" style="font-weight:800;opacity:.85">DÉFI DU JOUR #${dayNumber(today)}</div>
+      <div class="label">DÉFI DU JOUR #${dayNumber(today)}</div>
       <h2>${done ? `Fait : ${done.correct}/10 · ${done.score.toLocaleString('fr-FR')} pts` : '10 questions, les mêmes pour tout le monde'}</h2>
       ${done
-        ? `<div class="grid">${done.grid}</div>
+        ? `${gridHtml(done.grid)}
            <button class="btn" id="share-daily">📣 Défier mes amis</button>
-           <div class="small center" style="margin-top:8px;opacity:.85">Prochain défi dans <span id="countdown">${countdown()}</span></div>`
+           <div class="small center" style="margin-top:10px;font-weight:700">Prochain défi dans <span id="countdown">${countdown()}</span></div>`
         : `<button class="btn" id="daily">Jouer le défi ▶</button>`}
     </section>
 
@@ -155,7 +178,8 @@ function home() {
     on('#profile, #profile2', 'click', profile);
     on('[data-kind]', 'click', e => setup(e.currentTarget.dataset.kind));
     on('#daily', 'click', () => playChoice({ mode: 'daily', questions: dailyQuiz(today) }));
-    on('#share-daily', 'click', () => share({ ...done, daily: true }));
+    const dailyShare = done && prepareShare({ ...done, daily: true });
+    on('#share-daily', 'click', () => share(dailyShare));
     if (done) {
       const id = setInterval(() => {
         const el = document.getElementById('countdown');
@@ -255,8 +279,8 @@ function playChoice(cfg) {
       <div class="bar timer" id="timer"><i style="width:100%"></i></div>
       <div class="prompt">
         ${q.kind === 'flags'
-          ? `${flag(c.code)}<div class="q">${KIND.flags.verb}</div>`
-          : `${flag(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Quelle est sa capitale&nbsp;?</div>`}
+          ? `${flagSticker(c.code)}<div class="q">${KIND.flags.verb}</div>`
+          : `${flagSticker(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Quelle est sa capitale&nbsp;?</div>`}
         ${g.combo >= 3 ? `<div class="chip">🔥 Combo ${g.combo} · x${comboMultiplier(g.combo)}</div>` : ''}
       </div>
       <div class="answers">
@@ -408,8 +432,8 @@ function playTyping(cfg) {
     const c = q.country;
     document.getElementById('qnum').textContent = idx + 1;
     document.getElementById('prompt').innerHTML = q.kind === 'flags'
-      ? `${flag(c.code)}<div class="q">Quel est ce pays&nbsp;?</div>`
-      : `${flag(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Quelle est sa capitale&nbsp;?</div>`;
+      ? `${flagSticker(c.code)}<div class="q">Quel est ce pays&nbsp;?</div>`
+      : `${flagSticker(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Quelle est sa capitale&nbsp;?</div>`;
     const input = document.getElementById('typed');
     input.value = ''; input.classList.remove('shake', 'ok'); input.placeholder = q.kind === 'flags' ? 'Nom du pays…' : 'Nom de la capitale…';
     document.getElementById('hint').disabled = false;
@@ -601,8 +625,9 @@ function results(r) {
 
   const st = r.mode === 'survie' ? null : stars(r.correct, r.total);
   const ratio = r.total ? r.correct / r.total : 0;
-  const emoji = r.mode === 'survie' ? (r.correct >= 25 ? '🏆' : r.correct >= 10 ? '😎' : '💪')
-    : ratio === 1 ? '🏆' : ratio >= .8 ? '🤩' : ratio >= .5 ? '🙂' : '😅';
+  const level = r.mode === 'survie' ? (r.correct >= 15 ? 2 : r.correct >= 6 ? 1 : 0) : ratio >= .8 ? 2 : ratio >= .5 ? 1 : 0;
+  const mood = ['dizzy', 'lost', 'happy'][level];
+  const line = pickLine([LINES.dizzy, LINES.middle, LINES.happy][level]);
   const headline = r.mode === 'survie' ? `${r.correct}` : `${r.correct}/${r.total}`;
   const mistakes = r.mode === 'marathon' ? r.missed.map(c => ({ country: c, kind: r.kind }))
     : r.answers.filter(a => !a.correct);
@@ -612,7 +637,8 @@ function results(r) {
 
   render(`
     <div class="result-hero">
-      <div class="emoji">${emoji}</div>
+      <div class="bubble">${line}</div>
+      <div class="bird">${mascot(mood)}</div>
       <div class="muted" style="font-weight:700">${esc(title)}</div>
       <div class="score-big">${headline}</div>
       ${r.mode === 'survie' ? '<div class="muted">bonnes réponses</div>' : ''}
@@ -636,7 +662,7 @@ function results(r) {
 
     ${earned.map(b => `<div class="badge-new"><span class="ico">${b.icon}</span><div><b>Badge débloqué : ${b.name}</b><br><span class="small">${b.desc}</span></div></div>`).join('')}
 
-    ${r.answers && r.mode !== 'survie' ? `<div class="center" style="font-size:26px;letter-spacing:2px">${resultGrid(r.answers)}</div>` : ''}
+    ${r.answers && r.mode !== 'survie' ? `${gridHtml(resultGrid(r.answers))}` : ''}
 
     <button class="btn primary" id="share">📣 Partager mon score</button>
     <div class="row">
@@ -658,21 +684,29 @@ function results(r) {
       const bar = document.getElementById('xpbar');
       if (bar) bar.style.width = `${(after.into / after.need) * 100}%`;
     });
-    if ((st === 3) || r.record || levelUp || earned.length) confetti();
-    on('#share', 'click', () => share({
+    if (st === 3 || r.record || levelUp || (mood === 'happy' && earned.length)) confetti();
+    const payload = prepareShare({
       title, correct: r.correct, total: r.mode === 'survie' ? null : r.total,
       score: r.mode === 'marathon' || r.mode === 'survie' ? null : r.score,
       grid: r.answers && r.mode !== 'survie' ? resultGrid(r.answers) : null,
       daily: r.mode === 'daily', survie: r.mode === 'survie',
-    }));
+    });
+    on('#share', 'click', () => share(payload));
     on('#again', 'click', () => start(r.kind));
     on('#home', 'click', home);
   });
 }
 
 // ---------- Partage ----------
+const shareTitle = p => (p.daily ? `Flag ada · Défi du jour #${dayNumber(dayKey())}` : `Flag ada · ${p.title}`);
+// Prépare l'image à l'avance : sur iPhone, le partage doit suivre le toucher sans attente.
+function prepareShare(p) {
+  p.file = shareImage(p, shareTitle(p));
+  return p;
+}
+
 async function share(p) {
-  const title = p.daily ? `GéoBlitz · Défi du jour #${dayNumber(dayKey())}` : `GéoBlitz · ${p.title}`;
+  const title = shareTitle(p);
   const text = shareText({
     title, correct: p.correct, total: p.survie ? null : p.total ?? 10,
     score: p.score, grid: p.grid, url: APP_URL,
@@ -686,7 +720,7 @@ async function share(p) {
   };
   try {
     if (navigator.share) {
-      const file = await shareImage(p, title);
+      const file = await (p.file || shareImage(p, title));
       const data = file && navigator.canShare?.({ files: [file] }) ? { text, files: [file] } : { text, title };
       await navigator.share(data);
       return credit();
@@ -700,40 +734,59 @@ async function share(p) {
 }
 
 // Carte image 1080×1080 à joindre au partage (stories, WhatsApp…).
-function shareImage(p, title) {
-  return new Promise(resolve => {
-    try {
-      const W = 1080, cv = document.createElement('canvas'); cv.width = cv.height = W;
-      const x = cv.getContext('2d');
-      const g = x.createLinearGradient(0, 0, W, W);
-      g.addColorStop(0, '#262c78'); g.addColorStop(1, '#12153a');
-      x.fillStyle = g; x.fillRect(0, 0, W, W);
-      x.textAlign = 'center'; x.fillStyle = '#fff';
-      x.font = '900 84px system-ui, sans-serif';
-      x.fillText('GéoBlitz', W / 2, 170);
-      x.fillStyle = '#a9aed8'; x.font = '700 42px system-ui, sans-serif';
-      x.fillText(title.replace('GéoBlitz · ', ''), W / 2, 250);
-      x.fillStyle = '#ffcc33'; x.font = '900 260px system-ui, sans-serif';
-      x.fillText(p.survie ? `${p.correct}` : `${p.correct}/${p.total ?? 10}`, W / 2, 560);
-      if (p.score != null) {
-        x.fillStyle = '#fff'; x.font = '800 64px system-ui, sans-serif';
-        x.fillText(`${p.score.toLocaleString('fr-FR')} pts`, W / 2, 660);
-      }
-      if (p.grid) {
-        const cells = [...p.grid.matchAll(/🟩|🟨|🟥/gu)].map(m => m[0]);
-        const size = 66, gap = 14, w = cells.length * (size + gap) - gap;
-        cells.forEach((c, i) => {
-          x.fillStyle = c === '🟩' ? '#2ed47a' : c === '🟨' ? '#ffcc33' : '#ff5a64';
-          roundRect(x, (W - w) / 2 + i * (size + gap), 730, size, size, 14);
-        });
-      }
-      x.fillStyle = '#fff'; x.font = '800 48px system-ui, sans-serif';
-      x.fillText('Tu fais mieux ? 🌍', W / 2, 950);
-      x.fillStyle = '#a9aed8'; x.font = '600 34px system-ui, sans-serif';
-      x.fillText(APP_URL.replace(/^https?:\/\//, ''), W / 2, 1010);
-      cv.toBlob(b => resolve(b ? new File([b], 'geoblitz.png', { type: 'image/png' }) : null), 'image/png');
-    } catch { resolve(null); }
-  });
+async function shareImage(p, title) {
+  try {
+    const W = 1080, cv = document.createElement('canvas'); cv.width = cv.height = W;
+    const x = cv.getContext('2d');
+    const INK = '#1f2a48', ORANGE = '#ff8a1f', FONT = '"M PLUS Rounded 1c", ui-rounded, system-ui, sans-serif';
+    await document.fonts?.ready;
+    // Ciel + nuages
+    const sky = x.createLinearGradient(0, 0, 0, W);
+    sky.addColorStop(0, '#8fd3ff'); sky.addColorStop(1, '#c9ecff');
+    x.fillStyle = sky; x.fillRect(0, 0, W, W);
+    x.fillStyle = 'rgba(255,255,255,.55)';
+    [[150, 120, 110, 40], [900, 90, 150, 50], [960, 1000, 120, 40]].forEach(([cx, cy, rx, ry]) => { x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 7); x.fill(); });
+    // Carte autocollant : bord blanc, contour encre
+    x.save(); x.translate(W / 2, 590); x.rotate(-0.025);
+    x.fillStyle = 'rgba(31,42,72,.16)'; roundRect(x, -430, -280 + 22, 860, 560, 64);
+    x.fillStyle = '#fff'; roundRect(x, -446, -296, 892, 592, 72);
+    x.fillStyle = INK; roundRect(x, -430, -280, 860, 560, 60);
+    x.fillStyle = '#fffdf7'; roundRect(x, -422, -272, 844, 544, 54);
+    x.restore();
+    // Mascotte
+    const ratio = p.total ? p.correct / p.total : 1;
+    const img = new Image();
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mascot(ratio >= .8 ? 'happy' : ratio >= .5 ? 'lost' : 'dizzy'));
+    await img.decode();
+    x.drawImage(img, W / 2 - 150, 20, 300, 300);
+    // Textes
+    x.textAlign = 'center'; x.lineJoin = 'round';
+    x.fillStyle = INK; x.font = `900 46px ${FONT}`;
+    x.fillText(title.replace('Flag ada · ', ''), W / 2, 400);
+    x.font = `900 220px ${FONT}`; x.lineWidth = 16; x.strokeStyle = INK;
+    const big = p.survie ? `${p.correct}` : `${p.correct}/${p.total ?? 10}`;
+    x.strokeText(big, W / 2, 610); x.fillStyle = ORANGE; x.fillText(big, W / 2, 610);
+    if (p.score != null) {
+      x.fillStyle = INK; x.font = `800 56px ${FONT}`;
+      x.fillText(`${p.score.toLocaleString('fr-FR')} pts`, W / 2, 690);
+    }
+    if (p.grid) {
+      const cells = [...p.grid.matchAll(/🟩|🟨|🟥/gu)].map(m => m[0]);
+      const size = 58, gap = 14, w = cells.length * (size + gap) - gap;
+      cells.forEach((c, i) => {
+        const X = (W - w) / 2 + i * (size + gap);
+        x.fillStyle = INK; roundRect(x, X, 740, size, size, 14);
+        x.fillStyle = c === '🟩' ? '#36c27a' : c === '🟨' ? '#ffc93c' : '#ff5c5c';
+        roundRect(x, X + 5, 745, size - 10, size - 10, 10);
+      });
+    }
+    x.fillStyle = INK; x.font = `900 64px ${FONT}`;
+    x.fillText('Flag ada', W / 2, 985);
+    x.fillStyle = '#5d6a8c'; x.font = `700 32px ${FONT}`;
+    x.fillText(`Tu fais mieux ? ${APP_URL.replace(/^https?:\/\//, '')}`, W / 2, 1036);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    return blob ? new File([blob], 'flag-ada.png', { type: 'image/png' }) : null;
+  } catch { return null; }
 }
 function roundRect(x, X, Y, w, h, r) {
   x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r);
