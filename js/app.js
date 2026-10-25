@@ -1,6 +1,7 @@
-import { REGIONS, countriesFor, flagEmoji } from './data.js';
+import { REGIONS, countriesFor } from './data.js';
 import { mascot } from './mascot.js';
 import { icon } from './icons.js';
+import { presentScreen, captureScreen, feedbackCard } from './presentation.js';
 import {
   shuffle, makeQuiz, makeQuestion, dailyQuiz, dayKey, dayNumber, QUESTION_TIME,
   questionPoints, comboMultiplier, stars, matchTyped, levelFromXp, titleFor,
@@ -11,14 +12,14 @@ import {
 const app = document.getElementById('app');
 const APP_URL = location.origin + location.pathname.replace(/index\.html$/, '');
 const KIND = {
-  flags: { label: 'Drapeaux', icon: 'flag', verb: 'À quel pays appartient ce drapeau&nbsp;?' },
+  flags: { label: 'Drapeaux', icon: 'flag', verb: 'Quel pays ?' },
   capitals: { label: 'Capitales', icon: 'landmark' },
 };
 const MODES = {
-  eclair: { label: 'Éclair', icon: 'bolt', desc: '10 questions, 10 s chacune. Vise le combo !' },
-  saisie: { label: 'Saisie', icon: 'pencil', desc: '10 questions à écrire, 25 s chacune. Orthographe souple, aide à la saisie.' },
+  eclair: { label: 'Éclair', icon: 'bolt', desc: '10 questions · 10 s par réponse.' },
+  saisie: { label: 'Saisie', icon: 'pencil', desc: '10 questions · 25 s. Écris, avec aide et tolérance aux fautes.' },
   survie: { label: 'Survie', icon: 'heart', desc: '3 vies. Jusqu’où iras-tu ?' },
-  marathon: { label: 'Marathon', icon: '⌨️', desc: 'Tape-les tous avant la fin du chrono.' },
+  marathon: { label: 'Marathon', icon: 'keyboard', desc: 'Tous les pays. Un seul chrono.' },
 };
 
 // ---------- Sauvegarde ----------
@@ -39,21 +40,9 @@ function save() {
 // ---------- Utilitaires ----------
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// Windows n'affiche pas les drapeaux emoji : on bascule alors sur des images.
-const EMOJI_FLAGS = (() => {
-  try {
-    const c = document.createElement('canvas'); c.width = c.height = 16;
-    const x = c.getContext('2d', { willReadFrequently: true });
-    x.font = '16px sans-serif'; x.fillText('🇫🇷', 0, 14);
-    const d = x.getImageData(0, 0, 16, 16).data;
-    for (let i = 0; i < d.length; i += 4) if (d[i + 2] > 150 && d[i] < 100) return true; // du bleu → vrai drapeau
-    return false;
-  } catch { return true; }
-})();
+// Drapeaux en images, sur toutes les plateformes.
 function flag(code, cls = '') {
-  return EMOJI_FLAGS
-    ? `<span class="flag ${cls}" aria-hidden="true">${flagEmoji(code)}</span>`
-    : `<img class="flag ${cls}" alt="" src="https://flagcdn.com/w320/${code}.png">`;
+  return `<img class="flag ${cls}" alt="Drapeau ${code.toUpperCase()}" width="160" height="120" src="flags/${code}.svg">`;
 }
 
 // Grille de résultat : pastille pleine = juste, vide = raté
@@ -70,10 +59,10 @@ function flagSticker(code, cls = '') {
 // Répliques de la mascotte
 const pickLine = list => list[Math.floor(Math.random() * list.length)];
 const LINES = {
-  lost: ['Euh… c’est par où, l’Australie ?', 'J’ai encore perdu le nord…', 'Ma carte est à l’envers, non ?', 'Tout droit après le Kazakhstan ?', 'Quelqu’un a vu Tuvalu ?'],
-  happy: ['Je sais enfin où je suis !', 'Quel sens de l’orientation !', 'Atterrissage parfait !'],
-  middle: ['Pas mal… je crois ?', 'On y est presque !', 'J’ai juste fait un petit détour.'],
-  dizzy: ['Je suis complètement flagada…', 'Atterrissage d’urgence !', 'Qui a retourné la planète ?'],
+  lost: ['Encore un ?', 'Ta série t’attend.', 'On continue.'],
+  happy: ['Bien vu.', 'Facile pour toi.', 'Le monde te va bien.'],
+  middle: ['Pas mal du tout.', 'On continue.', 'Tu tiens le cap.'],
+  dizzy: ['On retente ?', 'Un pays à la fois.', 'Le prochain est pour toi.'],
 };
 
 let toastTimer;
@@ -100,35 +89,17 @@ function beep(good) {
   } catch { /* pas de son */ }
 }
 
-function confetti() {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const cv = document.getElementById('confetti'), ctx = cv.getContext('2d');
-  cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio;
-  ctx.scale(devicePixelRatio, devicePixelRatio);
-  const colors = ['#ff8a1f', '#2f9be8', '#1f2a48', '#fffdf7', '#8fd3ff'];
-  const parts = Array.from({ length: 140 }, () => ({
-    x: innerWidth / 2, y: innerHeight / 3, vx: (Math.random() - .5) * 14, vy: Math.random() * -14 - 4,
-    s: 6 + Math.random() * 6, c: colors[Math.floor(Math.random() * colors.length)], r: Math.random() * 6, vr: (Math.random() - .5) * .4,
-  }));
-  const start = performance.now();
-  (function frame(t) {
-    ctx.clearRect(0, 0, innerWidth, innerHeight);
-    for (const p of parts) {
-      p.vy += 0.35; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c;
-      ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
-    }
-    if (t - start < 3000) requestAnimationFrame(frame); else ctx.clearRect(0, 0, innerWidth, innerHeight);
-  })(start);
-}
+function confetti() { /* Migo porte le mouvement de célébration. */ }
 
 // Arrête le chrono de la partie en cours quand on change d'écran.
 let cleanup = () => {};
 function render(html, after) {
+  captureScreen(app);
   cleanup(); cleanup = () => {};
   app.innerHTML = `<div class="fade-in" style="display:contents">${html}</div>`;
   window.scrollTo(0, 0);
   after?.();
+  presentScreen(app);
 }
 function on(sel, ev, fn) { app.querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn)); }
 
@@ -138,43 +109,44 @@ function home() {
   const today = dayKey();
   const done = S.daily?.key === today ? S.daily : null;
   render(`
-    <header class="row between">
-      <div class="logo">Flag <b>ada</b><small>Drapeaux & capitales</small></div>
-      <div class="row">
-        <span class="chip" title="Jours joués d'affilée">${icon('flame')} ${S.lastPlayed === today || isYesterday(S.lastPlayed) ? S.streak : 0}</span>
-        <button class="icon-btn" id="profile" aria-label="Profil et badges">${icon('medal')}</button>
+    <section class="home-banner">
+      <header class="row between">
+        <div class="logo">${mascot()}<span class="logo-word">${[...'Migo'].map((l,i) => `<span style="--n:${i}">${l}</span>`).join('')}</span></div>
+        <div class="row">
+          <span class="chip" title="Jours joués d’affilée">${icon('flame')} ${S.lastPlayed === today || isYesterday(S.lastPlayed) ? S.streak : 0} j</span>
+          <button class="icon-btn" id="profile" aria-label="Profil et badges">${icon('medal')}</button>
+        </div>
+      </header>
+      <div class="hero">
+        <div><p class="eyebrow">Salut, à toi de jouer</p><h1>Encore<br>un ?</h1><p class="muted">Un tour du monde.<br>Quelques bonnes réponses.</p></div>
+        <div class="bird">${mascot()}</div>
       </div>
-    </header>
-
-    <div class="hero">
-      <div class="bird">${mascot('lost')}</div>
-      <div class="bubble">${pickLine(LINES.lost)}</div>
-    </div>
+    </section>
 
     <button class="card level-card" id="profile2">
       <div class="lvl">${lv.level}</div>
       <div class="grow">
         <div class="row between"><b>${titleFor(lv.level)}</b><span class="muted small">${lv.into} / ${lv.need} XP</span></div>
-        <div class="bar" style="margin-top:8px"><i style="width:${(lv.into / lv.need) * 100}%"></i></div>
+        <div class="bar" style="margin-top:8px"><i style="transform:scaleX(${((lv.into / lv.need) * 100) / 100})"></i></div>
       </div>
     </button>
 
     <section class="card daily">
       <div class="label">DÉFI DU JOUR #${dayNumber(today)}</div>
-      <h2>${done ? `Fait : ${done.correct}/10 · ${done.score.toLocaleString('fr-FR')} pts` : '10 questions, les mêmes pour tout le monde'}</h2>
+      <h2>${done ? `Fait : ${done.correct}/10 · ${done.score.toLocaleString('fr-FR')} pts` : 'Le monde joue avec toi.'}</h2>
       ${done
         ? `${gridHtml(done.grid)}
-           <button class="btn" id="share-daily">${icon('share')} Défier mes amis</button>
+           <button class="btn" id="share-daily">${icon('share')} Défier tes amis</button>
            <div class="small center" style="margin-top:10px;font-weight:700">Prochain défi dans <span id="countdown">${countdown()}</span></div>`
-        : `<button class="btn" id="daily">Jouer le défi ${icon('play')}</button>`}
+        : `<button class="btn dark" id="daily">Jouer ${icon('play')}</button>`}
     </section>
 
-    <h2>Entraînement</h2>
+    <div class="section-title"><h2>À toi le monde.</h2><span class="small muted">Entraînement</span></div>
     <div class="tiles">
       ${Object.entries(KIND).map(([k, v]) => `
         <button class="tile" data-kind="${k}">
           <span class="ico">${icon(v.icon)}</span><b>${v.label}</b>
-          <span class="muted small">193 pays · 3 modes</span>
+          <span class="category-number">${Math.round(new Set(Object.keys(S.records).filter(key => key.split('-')[1] === k).map(key => key.split('-')[2])).size / Object.keys(REGIONS).length * 100)} % des zones jouées</span><span class="muted small">4 modes · À ton rythme</span>
         </button>`).join('')}
     </div>
   `, () => {
@@ -217,7 +189,7 @@ function setup(kind) {
     </header>
     <div class="modes">
       ${Object.entries(MODES).map(([k, m]) => `
-        <button class="mode ${pick.mode === k ? 'on' : ''}" data-mode="${k}">
+        <button class="mode ${pick.mode === k ? 'on' : ''}" data-mode="${k}" aria-pressed="${pick.mode === k}">
           <span class="ico">${icon(m.icon)}</span>
           <span><b>${m.label}</b><br><span class="muted small">${m.desc}</span></span>
         </button>`).join('')}
@@ -225,11 +197,11 @@ function setup(kind) {
     <h2>Zone</h2>
     <div class="regions">
       ${Object.entries(REGIONS).map(([k, r]) => `
-        <button class="region ${pick.region === k ? 'on' : ''}" data-region="${k}">${r.label} <span class="muted small">${countriesFor(k).length}</span></button>`).join('')}
+        <button class="region ${pick.region === k ? 'on' : ''}" data-region="${k}" aria-pressed="${pick.region === k}">${r.label} <span class="muted small">${countriesFor(k).length}</span></button>`).join('')}
     </div>
     <div class="grow"></div>
     <div class="record-line">${rec ? `${icon('trophy')} Ton record : <b>${formatRecord(pick.mode, rec)}</b>` : 'Pas encore de record ici'}</div>
-    <button class="btn primary" id="go">C'est parti !</button>
+    <button class="btn primary" id="go">Jouer</button>
   `, () => {
     on('#back', 'click', home);
     on('[data-mode]', 'click', e => { pick.mode = e.currentTarget.dataset.mode; setup(kind); });
@@ -283,12 +255,13 @@ function playChoice(cfg) {
       <div class="prompt">
         ${q.kind === 'flags'
           ? `${flagSticker(c.code)}<div class="q">${KIND.flags.verb}</div>`
-          : `${flagSticker(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Quelle est sa capitale&nbsp;?</div>`}
+          : `${flagSticker(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Sa capitale ?</div>`}
         ${g.combo >= 3 ? `<div class="chip">${icon('flame')} Combo ${g.combo} · x${comboMultiplier(g.combo)}</div>` : ''}
       </div>
       <div class="answers">
         ${q.choices.map(x => `<button class="answer" data-code="${x.code}">${esc(label(x))}</button>`).join('')}
       </div>
+      <div class="question-migo">${mascot()}</div>
     `, () => {
       on('#quit', 'click', () => { if (confirm('Quitter la partie ?')) home(); });
       on('.answer', 'click', e => answer(e.currentTarget.dataset.code));
@@ -303,7 +276,7 @@ function playChoice(cfg) {
     const bar = document.getElementById('timer'), fill = bar.firstElementChild;
     const loop = now => {
       const left = QUESTION_TIME - (now - qStart) / 1000;
-      fill.style.width = `${Math.max(0, left / QUESTION_TIME) * 100}%`;
+      fill.style.transform = `scaleX(${Math.max(0, left / QUESTION_TIME)})`;
       bar.className = `bar timer ${left < 3 ? 'danger' : left < 6 ? 'warn' : ''}`;
       if (left <= 0) return answer(null);
       raf = requestAnimationFrame(loop);
@@ -321,6 +294,7 @@ function playChoice(cfg) {
     g.bestCombo = Math.max(g.bestCombo, g.combo);
     const pts = questionPoints(correct, left, g.combo);
     g.score += pts;
+    document.getElementById('score').textContent = cfg.mode === 'survie' ? String(g.answers.filter(a => a.correct).length + Number(correct)) : g.score.toLocaleString('fr-FR');
     g.answers.push({ country: q.country, kind: q.kind, correct, fast: left > QUESTION_TIME / 2 });
     if (!correct && cfg.mode === 'survie') g.lives--;
 
@@ -329,10 +303,14 @@ function playChoice(cfg) {
       else if (b.dataset.code === code) b.classList.add('bad');
       else b.classList.add('dim');
     });
+    const panel = document.createElement('div');
+    panel.className = `feedback-panel ${correct ? 'good' : 'bad'}`;
+    panel.setAttribute('role', 'status');
+    panel.innerHTML = feedbackCard(correct, correct ? `Bien vu. +${pts}` : code === null ? 'Temps écoulé.' : 'Presque.', `${q.country.name} · ${q.country.capital}`, g.combo);
+    app.querySelector('.question-migo')?.remove();
+    app.appendChild(panel);
     beep(correct); buzz(correct ? 15 : [40, 40, 40]);
-    if (correct && g.combo >= 3 && g.combo % 3 === 0) popCombo(`Combo x${comboMultiplier(g.combo)}`);
-    else if (correct && pts) popCombo(`+${pts}`);
-    if (code === null) popCombo('Temps écoulé');
+
 
     idx++;
     const over = (cfg.mode === 'survie' && g.lives <= 0) || (count && idx >= count);
@@ -396,6 +374,7 @@ function playTyping(cfg) {
     </form>
     <div class="suggests" id="suggests"></div>
     <div id="feedback" class="feedback" aria-live="assertive"></div>
+    <div class="question-migo">${mascot()}</div>
     <div class="tools">
       <button class="btn ghost keep" id="hint" type="button">${icon('bulb')} Indice</button>
       <button class="btn ghost keep" id="skip" type="button">Passer ${icon('skip')}</button>
@@ -435,8 +414,8 @@ function playTyping(cfg) {
     const c = q.country;
     document.getElementById('qnum').textContent = idx + 1;
     document.getElementById('prompt').innerHTML = q.kind === 'flags'
-      ? `${flagSticker(c.code)}<div class="q">Quel est ce pays&nbsp;?</div>`
-      : `${flagSticker(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Quelle est sa capitale&nbsp;?</div>`;
+      ? `${flagSticker(c.code)}<div class="q">Quel pays ?</div>`
+      : `${flagSticker(c.code, 'small')}<div class="q"><em>${esc(c.name)}</em><br>Sa capitale ?</div>`;
     const input = document.getElementById('typed');
     input.value = ''; input.classList.remove('shake', 'ok'); input.placeholder = q.kind === 'flags' ? 'Nom du pays…' : 'Nom de la capitale…';
     document.getElementById('hint').disabled = false;
@@ -453,7 +432,11 @@ function playTyping(cfg) {
 
   function feedback(text, cls = '') {
     const el = document.getElementById('feedback');
-    el.className = `feedback ${cls}`; el.textContent = text;
+    el.className = `feedback ${cls}`;
+    if (text && ['good', 'bad'].includes(cls)) {
+      el.classList.add('feedback-panel');
+      el.innerHTML = feedbackCard(cls === 'good', text, cls === 'good' ? `${q.country.name} · ${q.country.capital}` : 'Tu peux continuer.', g.combo);
+    } else el.textContent = text;
   }
 
   function tick() {
@@ -461,7 +444,7 @@ function playTyping(cfg) {
     const bar = document.getElementById('timer'), fill = bar.firstElementChild;
     const loop = now => {
       const left = TYPING_TIME - (now - qStart) / 1000;
-      fill.style.width = `${Math.max(0, left / TYPING_TIME) * 100}%`;
+      fill.style.transform = `scaleX(${Math.max(0, left / TYPING_TIME)})`;
       bar.className = `bar timer ${left < 5 ? 'danger' : left < 10 ? 'warn' : ''}`;
       if (left <= 0) return fail(true);
       raf = requestAnimationFrame(loop);
@@ -477,7 +460,7 @@ function playTyping(cfg) {
       // Mauvaise réponse : on peut réessayer tant qu'il reste du temps.
       beep(false); buzz([30, 30, 30]);
       input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
-      feedback(r.other ? `Ça, c'est ${q.kind === 'flags' ? r.other.name : `la capitale : ${r.other.name}`}` : 'Non, réessaie !', 'bad');
+      feedback(r.other ? `Ça, c'est ${q.kind === 'flags' ? r.other.name : `la capitale : ${r.other.name}`}` : 'Pas encore. Réessaie.', 'bad');
       input.select();
       return;
     }
@@ -491,9 +474,9 @@ function playTyping(cfg) {
     document.getElementById('score').textContent = g.score.toLocaleString('fr-FR');
     input.value = answerOf(q);
     input.classList.add('ok');
-    feedback(r.exact ? 'Exact !' : `Accepté : ${answerOf(q)}`, 'good');
+    feedback(r.exact ? 'Bien vu.' : `Accepté : ${answerOf(q)}`, 'good');
     beep(true); buzz(15);
-    popCombo(g.combo >= 3 && g.combo % 3 === 0 ? `Combo x${comboMultiplier(g.combo)}` : `+${pts}`);
+
     next(r.exact ? 700 : 1300);
   }
 
@@ -660,14 +643,14 @@ function results(r) {
 
     <div class="card">
       <div class="row between"><b>${levelUp ? `Niveau ${after.level} !` : `Niveau ${after.level}`} · ${titleFor(after.level)}</b><span class="muted small">${after.into} / ${after.need}</span></div>
-      <div class="bar" style="margin-top:8px"><i id="xpbar" style="width:${levelUp ? 0 : (before.into / before.need) * 100}%"></i></div>
+      <div class="bar" style="margin-top:8px"><i id="xpbar" style="transform:scaleX(${(levelUp ? 0 : (before.into / before.need) * 100) / 100})"></i></div>
     </div>
 
     ${earned.map(b => `<div class="badge-new"><span class="ico">${icon(b.icon)}</span><div><b>Badge débloqué : ${b.name}</b><br><span class="small">${b.desc}</span></div></div>`).join('')}
 
     ${r.answers && r.mode !== 'survie' ? `${gridHtml(resultGrid(r.answers))}` : ''}
 
-    <button class="btn primary" id="share">${icon('share')} Partager mon score</button>
+    <button class="btn primary" id="share">${icon('share')} Partager ton score</button>
     <div class="row">
       ${r.mode === 'daily' ? '' : `<button class="btn" id="again">${icon('replay')} Rejouer</button>`}
       <button class="btn" id="home">Accueil</button>
@@ -685,7 +668,7 @@ function results(r) {
   `, () => {
     requestAnimationFrame(() => {
       const bar = document.getElementById('xpbar');
-      if (bar) bar.style.width = `${(after.into / after.need) * 100}%`;
+      if (bar) bar.style.transform = `scaleX(${after.into / after.need})`;
     });
     if (st === 3 || r.record || levelUp || (mood === 'happy' && earned.length)) confetti();
     const payload = prepareShare({
@@ -701,7 +684,7 @@ function results(r) {
 }
 
 // ---------- Partage ----------
-const shareTitle = p => (p.daily ? `Flag ada · Défi du jour #${dayNumber(dayKey())}` : `Flag ada · ${p.title}`);
+const shareTitle = p => (p.daily ? `Migo · Défi du jour #${dayNumber(dayKey())}` : `Migo · ${p.title}`);
 // Prépare l'image à l'avance : sur iPhone, le partage doit suivre le toucher sans attente.
 function prepareShare(p) {
   p.file = shareImage(p, shareTitle(p));
@@ -741,22 +724,11 @@ async function shareImage(p, title) {
   try {
     const W = 1080, cv = document.createElement('canvas'); cv.width = cv.height = W;
     const x = cv.getContext('2d');
-    const INK = '#1f2a48', ORANGE = '#ff8a1f', FONT = '"M PLUS Rounded 1c", ui-rounded, system-ui, sans-serif';
-    const DISPLAY = '"Dela Gothic One", "M PLUS Rounded 1c", system-ui, sans-serif';
+    const INK = '#23324A', ORANGE = '#23324A', FONT = '"Gabarito", system-ui, sans-serif';
+    const DISPLAY = '"Gabarito", system-ui, sans-serif';
     await Promise.race([Promise.all([document.fonts?.load(`64px ${DISPLAY}`), document.fonts?.load(`800 44px ${FONT}`)]), new Promise(r => setTimeout(r, 800))]).catch(() => {});
-    // Ciel + nuages
-    const sky = x.createLinearGradient(0, 0, 0, W);
-    sky.addColorStop(0, '#8fd3ff'); sky.addColorStop(1, '#c9ecff');
-    x.fillStyle = sky; x.fillRect(0, 0, W, W);
-    x.fillStyle = 'rgba(255,255,255,.55)';
-    [[150, 120, 110, 40], [900, 90, 150, 50], [960, 1000, 120, 40]].forEach(([cx, cy, rx, ry]) => { x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, 7); x.fill(); });
-    // Carte autocollant : bord blanc, contour encre
-    x.save(); x.translate(W / 2, 590); x.rotate(-0.025);
-    x.fillStyle = 'rgba(31,42,72,.16)'; roundRect(x, -430, -280 + 22, 860, 560, 64);
-    x.fillStyle = '#fff'; roundRect(x, -446, -296, 892, 592, 72);
-    x.fillStyle = INK; roundRect(x, -430, -280, 860, 560, 60);
-    x.fillStyle = '#fffdf7'; roundRect(x, -422, -272, 844, 544, 54);
-    x.restore();
+    x.fillStyle = '#7FB8FF'; x.fillRect(0, 0, W, W);
+    x.fillStyle = '#F3F6FA'; roundRect(x, 80, 310, 920, 560, 48);
     // Mascotte
     const ratio = p.total ? p.correct / p.total : 1;
     const img = new Image();
@@ -766,10 +738,10 @@ async function shareImage(p, title) {
     // Textes
     x.textAlign = 'center'; x.lineJoin = 'round';
     x.fillStyle = INK; x.font = `800 44px ${FONT}`;
-    x.fillText(title.replace('Flag ada · ', ''), W / 2, 400);
+    x.fillText(title.replace('Migo · ', ''), W / 2, 400);
     x.font = `200px ${DISPLAY}`; x.lineWidth = 16; x.strokeStyle = INK;
     const big = p.survie ? `${p.correct}` : `${p.correct}/${p.total ?? 10}`;
-    x.strokeText(big, W / 2, 610); x.fillStyle = ORANGE; x.fillText(big, W / 2, 610);
+    x.fillStyle = ORANGE; x.fillText(big, W / 2, 610);
     if (p.score != null) {
       x.fillStyle = INK; x.font = `800 56px ${FONT}`;
       x.fillText(`${p.score.toLocaleString('fr-FR')} pts`, W / 2, 690);
@@ -780,16 +752,16 @@ async function shareImage(p, title) {
       cells.forEach((ok, i) => {
         const cx = (W - w) / 2 + i * (size + gap) + size / 2;
         x.beginPath(); x.arc(cx, 768, size / 2, 0, 7);
-        x.fillStyle = ok ? ORANGE : '#fffdf7'; x.fill();
+        x.fillStyle = ok ? ORANGE : '#F3F6FA'; x.fill();
         x.lineWidth = 6; x.strokeStyle = INK; x.stroke();
       });
     }
     x.fillStyle = INK; x.font = `60px ${DISPLAY}`;
-    x.fillText('Flag ada', W / 2, 985);
-    x.fillStyle = '#5d6a8c'; x.font = `700 32px ${FONT}`;
+    x.fillText('Migo', W / 2, 985);
+    x.fillStyle = '#526078'; x.font = `700 32px ${FONT}`;
     x.fillText(`Tu fais mieux ? ${APP_URL.replace(/^https?:\/\//, '')}`, W / 2, 1036);
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
-    return blob ? new File([blob], 'flag-ada.png', { type: 'image/png' }) : null;
+    return blob ? new File([blob], 'migo.png', { type: 'image/png' }) : null;
   } catch { return null; }
 }
 function roundRect(x, X, Y, w, h, r) {
@@ -825,9 +797,9 @@ function profile() {
       ${recs.length ? recs.map(([k, v]) => {
         const [mode, kind, region] = k.split('-');
         return `<div class="list-row"><span class="row">${icon(MODES[mode].icon)} ${KIND[kind].label} · ${REGIONS[region].label}</span><b>${formatRecord(mode, v)}</b></div>`;
-      }).join('') : '<div class="muted center">Joue une partie pour établir tes records !</div>'}
+      }).join('') : '<div class="muted center">Ton premier record t’attend.</div>'}
     </div>
-    <button class="btn ghost" id="reset">Réinitialiser ma progression</button>
+    <button class="btn ghost" id="reset">Effacer ta progression</button>
   `, () => {
     on('#back', 'click', home);
     on('#sound', 'click', () => { S.sound = !S.sound; save(); profile(); });

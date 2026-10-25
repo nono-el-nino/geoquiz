@@ -1,5 +1,6 @@
 // Icônes au trait, épaisses et arrondies (dans l'esprit de la mascotte)
 const P = {
+  keyboard: '<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M6 9h1m4 0h1m4 0h1M6 13h1m4 0h1m4 0h1M8 16h8"/>',
   flag: '<path d="M5 21V4"/><path d="M5 4h12l-2.5 4.5L17 13H5"/>',
   landmark: '<path d="M3 21h18M5 18h14M6 10v8M10 10v8M14 10v8M18 10v8"/><path d="M3 10h18L12 3z"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
